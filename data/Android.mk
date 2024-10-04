@@ -22,5 +22,5 @@ LOCAL_MODULE_TAGS   := optional
 LOCAL_MODULE_CLASS  := ETC
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_SRC_FILES     := media_codecs_ffmpeg.xml
-LOCAL_VENDOR_MODULE    := true
 include $(BUILD_PREBUILT)
+
