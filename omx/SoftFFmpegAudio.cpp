@@ -219,19 +219,10 @@ status_t SoftFFmpegAudio::initDecoder(enum AVCodecID codecID) {
 
 void SoftFFmpegAudio::deInitDecoder() {
     if (mCtx) {
-        if (!mCtx->extradata) {
-            av_free(mCtx->extradata);
-            mCtx->extradata = NULL;
-            mCtx->extradata_size = 0;
-        }
-
         deinitVorbisHdr();
 
-        if (mCodecAlreadyOpened) {
-            avcodec_close(mCtx);
-            mCodecAlreadyOpened = false;
-        }
-        av_free(mCtx);
+        avcodec_free_context(&mCtx);
+        mCodecAlreadyOpened = false;
         mCtx = NULL;
     }
     if (mFrame) {
