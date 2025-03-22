@@ -23,3 +23,27 @@ LOCAL_MODULE_CLASS  := ETC
 LOCAL_SRC_FILES     := media_codecs_ffmpeg.xml
 include $(BUILD_PREBUILT)
 
+include $(CLEAR_VARS)
+LOCAL_MODULE        := media_codecs_ffmpeg_av1.xml
+LOCAL_MODULE_TAGS   := optional
+LOCAL_MODULE_CLASS  := ETC
+LOCAL_PROPRIETARY_MODULE := true
+LOCAL_SRC_FILES     := media_codecs_ffmpeg_av1.xml
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := ffmpeg-enable-av1-hwaccel
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_PROPRIETARY_MODULE := true
+LOCAL_SRC_FILES := ffmpeg-enable-av1-hwaccel
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := ffmpeg_av1_hwaccel.rc
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := ETC
+LOCAL_PROPRIETARY_MODULE := true
+LOCAL_MODULE_RELATIVE_PATH := init
+LOCAL_SRC_FILES := ffmpeg_av1_hwaccel.rc
+include $(BUILD_PREBUILT)

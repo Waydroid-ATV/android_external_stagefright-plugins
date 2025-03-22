@@ -1,0 +1,2 @@
+on post-fs
+    exec -- /vendor/bin/ffmpeg-enable-av1-hwaccel

@@ -70,6 +70,11 @@ static const CodecProfileLevel kVP9ProfileLevels[] = {
     { OMX_VIDEO_VP9Profile2, OMX_VIDEO_VP9Level5 },
 };
 
+static const CodecProfileLevel kAV1ProfileLevels[] = {
+    { OMX_VIDEO_AV1ProfileMain8, OMX_VIDEO_AV1Level53 },
+    { OMX_VIDEO_AV1ProfileMain10, OMX_VIDEO_AV1Level53 },
+};
+
 SoftFFmpegVideo::SoftFFmpegVideo(
         const char *name,
         const char *componentRole,
@@ -1008,6 +1013,9 @@ SoftOMXComponent* SoftFFmpegVideo::createSoftOMXComponent(
     } else if (!strcmp(name, "OMX.ffmpeg.vp9.decoder")) {
         codec_profile_levels = kVP9ProfileLevels;
         codec_array_size = ARRAY_SIZE(kVP9ProfileLevels);
+    } else if (!strcmp(name, "OMX.ffmpeg.av1.decoder")) {
+        codec_profile_levels = kAV1ProfileLevels;
+        codec_array_size = ARRAY_SIZE(kAV1ProfileLevels);
     } else {
         codec_profile_levels = NULL;
         codec_array_size = 0;

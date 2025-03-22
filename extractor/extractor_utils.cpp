@@ -290,6 +290,15 @@ media_status_t setVP9Format(AVCodecParameters *avpar __unused, AMediaFormat *met
     return AMEDIA_OK;
 }
 
+media_status_t setAV1Format(AVCodecParameters *avpar, AMediaFormat *meta)
+{
+    ALOGV("AV1");
+
+    AMediaFormat_setString(meta, AMEDIAFORMAT_KEY_MIME, MEDIA_MIMETYPE_VIDEO_AV1);
+
+    return AMEDIA_OK;
+}
+
 //////////////////////////////////////////////////////////////////////////////////
 // audio
 //////////////////////////////////////////////////////////////////////////////////

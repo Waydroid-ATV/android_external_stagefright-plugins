@@ -53,6 +53,7 @@ media_status_t setFLV1Format(AVCodecParameters *avpar, AMediaFormat *meta);
 media_status_t setHEVCFormat(AVCodecParameters *avpar, AMediaFormat *meta);
 media_status_t setVP8Format(AVCodecParameters *avpar, AMediaFormat *meta);
 media_status_t setVP9Format(AVCodecParameters *avpar, AMediaFormat *meta);
+media_status_t setAV1Format(AVCodecParameters *avpar, AMediaFormat *meta);
 
 //////////////////////////////////////////////////////////////////////////////////
 // audio

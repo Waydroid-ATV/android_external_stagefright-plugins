@@ -89,6 +89,8 @@ static const struct VideoCodingMapEntry {
         OMX_VIDEO_CodingVP8, "video_decoder.vp8", AV_CODEC_ID_VP8 },
     { "OMX.ffmpeg.vp9.decoder",
         OMX_VIDEO_CodingVP9, "video_decoder.vp9", AV_CODEC_ID_VP9 },
+    { "OMX.ffmpeg.av1.decoder",
+        OMX_VIDEO_CodingAV1, "video_decoder.av1", AV_CODEC_ID_AV1 },
     { "OMX.ffmpeg.vtrial.decoder",
         OMX_VIDEO_CodingAutoDetect, "video_decoder.trial", AV_CODEC_ID_NONE },
     { "OMX.ffmpeg.wmv.decoder",

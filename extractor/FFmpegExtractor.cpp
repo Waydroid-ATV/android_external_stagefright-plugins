@@ -335,6 +335,7 @@ bool FFmpegExtractor::isCodecSupported(enum AVCodecID codec_id)
     case AV_CODEC_ID_VC1:
     case AV_CODEC_ID_VP8:
     case AV_CODEC_ID_VP9:
+    case AV_CODEC_ID_AV1:
     case AV_CODEC_ID_WMAV1:
     case AV_CODEC_ID_WMAV2:
     case AV_CODEC_ID_WMAPRO:
@@ -416,6 +417,9 @@ media_status_t FFmpegExtractor::setVideoFormat(AVStream *stream, AMediaFormat *m
         break;
     case AV_CODEC_ID_VP9:
         ret = setVP9Format(avpar, meta);
+        break;
+    case AV_CODEC_ID_AV1:
+        ret = setAV1Format(avpar, meta);
         break;
     default:
         ALOGD("[video] unsupported codec (id: %d, name: %s), but give it a chance",
@@ -1561,6 +1565,7 @@ static bool isCodecSupportedByStagefright(enum AVCodecID codec_id)
     case AV_CODEC_ID_VP6:
     case AV_CODEC_ID_VP8:
     case AV_CODEC_ID_VP9:
+    case AV_CODEC_ID_AV1:
     //audio
     case AV_CODEC_ID_AAC:
     case AV_CODEC_ID_MP3:

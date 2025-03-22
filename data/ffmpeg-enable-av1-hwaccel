@@ -1,0 +1,8 @@
+#!/system/bin/sh -eu
+
+if (vainfo | grep -q AV1); then
+    echo 'AV1 support detected!' >&2
+    mount --bind /vendor/etc/media_codecs_ffmpeg_av1.xml /vendor/etc/media_codecs_ffmpeg.xml
+else
+    echo 'AV1 support not detected!' >&2
+fi
