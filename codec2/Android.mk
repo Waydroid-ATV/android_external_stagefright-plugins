@@ -24,7 +24,10 @@ LOCAL_VINTF_FRAGMENTS := manifest_media_c2_V1_2_ffmpeg.xml
 LOCAL_INIT_RC := android.hardware.media.c2@1.2-ffmpeg-service.rc
 LOCAL_REQUIRED_MODULES := \
 	android.hardware.media.c2@1.2-ffmpeg.policy \
-	media_codecs_ffmpeg_c2.xml
+	media_codecs_ffmpeg_c2.xml \
+	media_codecs_ffmpeg_c2_av1.xml \
+	ffmpeg_c2_av1_hwaccel \
+	ffmpeg_c2_av1_hwaccel.rc
 LOCAL_SRC_FILES := \
 	C2FFMPEGAudioDecodeComponent.cpp \
 	C2FFMPEGAudioDecodeInterface.cpp \
@@ -69,11 +72,36 @@ LOCAL_SRC_FILES_arm64 := seccomp_policy/android.hardware.media.c2@1.2-ffmpeg-arm
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
+LOCAL_MODULE := ffmpeg_c2_av1_hwaccel
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_PROPRIETARY_MODULE := true
+LOCAL_SRC_FILES := ffmpeg_c2_av1_hwaccel
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := ffmpeg_c2_av1_hwaccel.rc
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := ETC
+LOCAL_PROPRIETARY_MODULE := true
+LOCAL_MODULE_RELATIVE_PATH := init
+LOCAL_SRC_FILES := ffmpeg_c2_av1_hwaccel.rc
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
 LOCAL_MODULE := media_codecs_ffmpeg_c2.xml
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE_CLASS := ETC
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_SRC_FILES := media_codecs_ffmpeg_c2.xml
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := media_codecs_ffmpeg_c2_av1.xml
+LOCAL_MODULE_TAGS := optional
+LOCAL_MODULE_CLASS := ETC
+LOCAL_PROPRIETARY_MODULE := true
+LOCAL_SRC_FILES := media_codecs_ffmpeg_c2_av1.xml
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
