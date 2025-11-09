@@ -20,3 +20,14 @@ service android-hardware-media-c2-hal-1-2 /vendor/bin/hw/android.hardware.media.
     group camera mediadrm drmrpc
     ioprio rt 4
     task_profiles ProcessCapacityHigh
+
+on post-fs
+    exec -- /vendor/bin/ffmpeg-c2-av1-checker
+
+on boot && property:ro.hardware.gralloc=minigbm_gbm_mesa
+    setprop debug.ffmpeg-codec2.hwaccel.drm 0
+    setprop persist.ffmpeg-codec2.pixel_format RGBX_8888
+
+on boot && property:ro.hardware.gralloc=minigbm_intel
+    setprop debug.ffmpeg-codec2.hwaccel.drm 1
+    setprop persist.ffmpeg-codec2.pixel_format YUV_420
