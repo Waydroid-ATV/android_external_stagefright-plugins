@@ -1,2 +1,2 @@
-on post-fs
+on post-fs && property:media.sf.hwaccel=1
     exec -- /vendor/bin/ffmpeg-enable-av1-hwaccel
