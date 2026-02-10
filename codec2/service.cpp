@@ -111,6 +111,63 @@ static const C2FFMPEGComponentInfo kFFMPEGAudioComponents[] = {
 static const size_t kNumAudioComponents =
     (sizeof(kFFMPEGAudioComponents) / sizeof(kFFMPEGAudioComponents[0]));
 
+static const std::string kCheckVaapiCodecs[] = {
+    "c2.ffmpeg.h264.decoder",
+    "c2.ffmpeg.hevc.decoder",
+    "c2.ffmpeg.vp8.decoder",
+    "c2.ffmpeg.vp9.decoder",
+    "c2.ffmpeg.av1.decoder",
+};
+
+static bool isCodecSupportedByGPU(const std::string codec) {
+    using namespace ::android;
+
+    const std::string supported_codecs = ::android::base::GetProperty("ro.waydroid.hwcodecs", "");
+    const bool is_encoder = (codec.find(".encoder") != std::string::npos);
+
+    if (codec.find("h264") != std::string::npos) {
+        return (
+            (is_encoder ? supported_codecs.find("H264E") : supported_codecs.find("H264D")) != std::string::npos ||
+            (is_encoder ? supported_codecs.find("S264E") : supported_codecs.find("S264D")) != std::string::npos
+        );
+    } else if (codec.find("hevc") != std::string::npos) {
+        return (
+            (is_encoder ? supported_codecs.find("HEVCE") : supported_codecs.find("HEVCD")) != std::string::npos ||
+            (is_encoder ? supported_codecs.find("S265E") : supported_codecs.find("S265D")) != std::string::npos
+        );
+    } else if (codec.find("vp8") != std::string::npos) {
+        return (
+            (is_encoder ? supported_codecs.find("VP80E") : supported_codecs.find("VP80D")) != std::string::npos ||
+            (is_encoder ? supported_codecs.find("VP8FE") : supported_codecs.find("VP8FD")) != std::string::npos
+        );
+    } else if (codec.find("vp9") != std::string::npos) {
+        return (
+            (is_encoder ? supported_codecs.find("VP90E") : supported_codecs.find("VP90D")) != std::string::npos ||
+            (is_encoder ? supported_codecs.find("VP9FE") : supported_codecs.find("VP9FD")) != std::string::npos
+        );
+    } else if (codec.find("av1") != std::string::npos) {
+        return (
+            (is_encoder ? supported_codecs.find("AV10E") : supported_codecs.find("AV10D")) != std::string::npos ||
+            (is_encoder ? supported_codecs.find("AV1FE") : supported_codecs.find("AV1FD")) != std::string::npos
+        );
+    }
+
+    return false;
+}
+
+static bool shouldEnableCodec(const std::string codec) {
+    using namespace ::android;
+
+    const bool force_hwaccel_codec = ::android::base::GetBoolProperty("debug.ffmpeg-codec2.hwaccel.force", false),
+               codec_supported_by_gpu = isCodecSupportedByGPU(codec);
+
+    if (std::find(std::begin(kCheckVaapiCodecs), std::end(kCheckVaapiCodecs), codec) != std::end(kCheckVaapiCodecs) && force_hwaccel_codec) {
+        return codec_supported_by_gpu;
+    }
+
+    return true;
+}
+
 class StoreImpl : public C2ComponentStore {
 public:
     StoreImpl()
@@ -127,6 +184,9 @@ public:
     virtual c2_status_t createComponent(
             C2String name,
             std::shared_ptr<C2Component>* const component) override {
+        if (::android::base::GetProperty("ro.waydroid.codec2-impl", "c2.ffmpeg") != "c2.ffmpeg") {
+            return name.starts_with("c2.ffmpeg.") ? C2_OMITTED : C2_NOT_FOUND;
+        }
         ALOGD("createComponent: %s", name.c_str());
         for (int i = 0; i < kNumAudioComponents; i++) {
             auto info = &kFFMPEGAudioComponents[i];
@@ -141,6 +201,7 @@ public:
         for (int i = 0; i < kNumVideoComponents; i++) {
             auto info = &kFFMPEGVideoComponents[i];
             if (name == info->name) {
+                if (!shouldEnableCodec(name)) return C2_OMITTED;
                 component->reset();
                 *component = std::shared_ptr<C2Component>(
                         new C2FFMPEGVideoDecodeComponent(
@@ -154,6 +215,9 @@ public:
     virtual c2_status_t createInterface(
             C2String name,
             std::shared_ptr<C2ComponentInterface>* const interface) override {
+        if (::android::base::GetProperty("ro.waydroid.codec2-impl", "c2.ffmpeg") != "c2.ffmpeg") {
+            return name.starts_with("c2.ffmpeg.") ? C2_OMITTED : C2_NOT_FOUND;
+        }
         ALOGD("createInterface: %s", name.c_str());
         for (int i = 0; i < kNumAudioComponents; i++) {
             auto info = &kFFMPEGAudioComponents[i];
@@ -168,6 +232,7 @@ public:
         for (int i = 0; i < kNumVideoComponents; i++) {
             auto info = &kFFMPEGVideoComponents[i];
             if (name == info->name) {
+                if (!shouldEnableCodec(name)) return C2_OMITTED;
                 interface->reset();
                 *interface = std::shared_ptr<C2ComponentInterface>(
                         new SimpleInterface<C2FFMPEGVideoDecodeInterface>(
@@ -203,6 +268,7 @@ public:
             }
             if (defaultRankVideo != RANK_DISABLED) {
                 for (int i = 0; i < kNumVideoComponents; i++) {
+                    if (!shouldEnableCodec(kFFMPEGVideoComponents[i].name)) continue;
                     auto traits = std::make_shared<C2Component::Traits>();
                     traits->name = kFFMPEGVideoComponents[i].name;
                     traits->domain = C2Component::DOMAIN_VIDEO;
