@@ -22,7 +22,7 @@ namespace android {
 
 C2FFMPEGVideoUtils::C2FFMPEGVideoUtils()
     : mSwapVAColorRGB(base::GetBoolProperty("persist.ffmpeg-codec2.vaapi_rgb_swap_color", false)),
-      mOverridePixelFormat(base::GetProperty("persist.ffmpeg-codec2.pixel_format", "YUV_420")) {
+      mOverridePixelFormat(base::GetProperty("debug.ffmpeg-codec2.pixel_format", "YUV_420")) {
 }
 
 PixelFormatType C2FFMPEGVideoUtils::getPixelFormatType() const {
