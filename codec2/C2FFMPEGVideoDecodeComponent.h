@@ -80,7 +80,7 @@ private:
     void popPendingWork(const std::unique_ptr<C2Work>& work);
     void prunePendingWorksUntil(const std::unique_ptr<C2Work>& work);
 
-#ifdef CONFIG_VAAPI
+#if CONFIG_VAAPI
     void openDecoderVAAPI();
     void deInitDecoderVAAPI();
     int getBufferVAAPI(AVHWFramesContext* ctx, AVFrame* frame, bool forceAllocator = false);

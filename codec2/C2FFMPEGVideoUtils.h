@@ -23,7 +23,7 @@ extern "C" {
 #include <libavutil/pixdesc.h>
 }
 #include <drm/drm_fourcc.h>
-#ifdef CONFIG_VAAPI
+#if CONFIG_VAAPI
 #include <va/va.h>
 #endif
 
@@ -44,7 +44,7 @@ public:
 
     bool isGrallocMinigbm() const;
     uint32_t getPixelFormat(bool flexible) const;
-#ifdef CONFIG_VAAPI
+#if CONFIG_VAAPI
     uint32_t getVAFormat() const;
     uint32_t getVAFOURCCFormat() const;
 #endif
