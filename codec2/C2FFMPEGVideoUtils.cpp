@@ -53,7 +53,7 @@ uint32_t C2FFMPEGVideoUtils::getPixelFormat(bool flexible) const {
     return HAL_PIXEL_FORMAT_YV12;
 }
 
-#ifdef CONFIG_VAAPI
+#if CONFIG_VAAPI
 uint32_t C2FFMPEGVideoUtils::getVAFormat() const {
     switch (getPixelFormatType()) {
         case PixelFormatType::YUV_420:

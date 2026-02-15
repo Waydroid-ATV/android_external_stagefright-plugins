@@ -22,7 +22,7 @@ extern "C" {
 #include <config.h>
 #include <libavutil/pixdesc.h>
 }
-#ifdef CONFIG_VAAPI
+#if CONFIG_VAAPI
 #include <va/va.h>
 #endif
 
@@ -42,7 +42,7 @@ public:
     virtual ~C2FFMPEGVideoUtils() = default;
 
     uint32_t getPixelFormat(bool flexible) const;
-#ifdef CONFIG_VAAPI
+#if CONFIG_VAAPI
     uint32_t getVAFormat() const;
     uint32_t getVAFOURCCFormat() const;
 #endif

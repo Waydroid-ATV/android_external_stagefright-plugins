@@ -31,7 +31,7 @@ extern "C" {
 #include <libavutil/opt.h>
 #include <libavutil/pixdesc.h>
 }
-#ifdef CONFIG_VAAPI
+#if CONFIG_VAAPI
 #include <C2AllocatorGralloc.h>
 extern "C" {
 #include <libavutil/hwcontext_internal.h>
@@ -92,7 +92,7 @@ C2FFMPEGVideoDecodeComponent::C2FFMPEGVideoDecodeComponent(
       mEOSSignalled(false),
       mUtils(std::make_unique<C2FFMPEGVideoUtils>()) {
     ALOGD("C2FFMPEGVideoDecodeComponent: mediaType = %s", componentInfo->mediaType);
-#ifdef CONFIG_VAAPI
+#if CONFIG_VAAPI
     mVppConfigId = VA_INVALID_ID;
     mVppContextId = VA_INVALID_ID;
     mVppWidth = 0;
@@ -504,7 +504,7 @@ filterend:
     return C2_OK;
 }
 
-#ifdef CONFIG_VAAPI
+#if CONFIG_VAAPI
 int C2FFMPEGVideoDecodeComponent::vaapi_vpp_convert(AVFrame *src, AVFrame *dst) {
     if (src->format != AV_PIX_FMT_VAAPI || dst->format != AV_PIX_FMT_VAAPI)
         return AVERROR(EINVAL);
