@@ -42,6 +42,7 @@
 #include "C2FFMPEGAudioDecodeInterface.h"
 #include "C2FFMPEGVideoDecodeComponent.h"
 #include "C2FFMPEGVideoDecodeInterface.h"
+#include "C2FFMPEGVideoUtils.h"
 
 // This is the absolute on-device path of the prebuild_etc module
 // "android.hardware.media.c2-ffmpeg-seccomp_policy" in Android.bp.
@@ -119,47 +120,11 @@ static const std::string kCheckVaapiCodecs[] = {
     "c2.ffmpeg.av1.decoder",
 };
 
-static bool isCodecSupportedByGPU(const std::string codec) {
-    using namespace ::android;
-
-    const std::string supported_codecs = ::android::base::GetProperty("ro.waydroid.hwcodecs", "");
-    const bool is_encoder = (codec.find(".encoder") != std::string::npos);
-
-    if (codec.find("h264") != std::string::npos) {
-        return (
-            (is_encoder ? supported_codecs.find("H264E") : supported_codecs.find("H264D")) != std::string::npos ||
-            (is_encoder ? supported_codecs.find("S264E") : supported_codecs.find("S264D")) != std::string::npos
-        );
-    } else if (codec.find("hevc") != std::string::npos) {
-        return (
-            (is_encoder ? supported_codecs.find("HEVCE") : supported_codecs.find("HEVCD")) != std::string::npos ||
-            (is_encoder ? supported_codecs.find("S265E") : supported_codecs.find("S265D")) != std::string::npos
-        );
-    } else if (codec.find("vp8") != std::string::npos) {
-        return (
-            (is_encoder ? supported_codecs.find("VP80E") : supported_codecs.find("VP80D")) != std::string::npos ||
-            (is_encoder ? supported_codecs.find("VP8FE") : supported_codecs.find("VP8FD")) != std::string::npos
-        );
-    } else if (codec.find("vp9") != std::string::npos) {
-        return (
-            (is_encoder ? supported_codecs.find("VP90E") : supported_codecs.find("VP90D")) != std::string::npos ||
-            (is_encoder ? supported_codecs.find("VP9FE") : supported_codecs.find("VP9FD")) != std::string::npos
-        );
-    } else if (codec.find("av1") != std::string::npos) {
-        return (
-            (is_encoder ? supported_codecs.find("AV10E") : supported_codecs.find("AV10D")) != std::string::npos ||
-            (is_encoder ? supported_codecs.find("AV1FE") : supported_codecs.find("AV1FD")) != std::string::npos
-        );
-    }
-
-    return false;
-}
-
 static bool shouldEnableCodec(const std::string codec) {
     using namespace ::android;
 
     const bool force_hwaccel_codec = ::android::base::GetBoolProperty("debug.ffmpeg-codec2.hwaccel.force", false),
-               codec_supported_by_gpu = isCodecSupportedByGPU(codec);
+               codec_supported_by_gpu = C2FFMPEGVideoUtils().shouldEnableCodec(codec, false);
 
     if (std::find(std::begin(kCheckVaapiCodecs), std::end(kCheckVaapiCodecs), codec) != std::end(kCheckVaapiCodecs) && force_hwaccel_codec) {
         return codec_supported_by_gpu;

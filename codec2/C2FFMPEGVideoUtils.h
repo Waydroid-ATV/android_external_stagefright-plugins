@@ -41,6 +41,7 @@ public:
     explicit C2FFMPEGVideoUtils();
     virtual ~C2FFMPEGVideoUtils() = default;
 
+    bool shouldEnableCodec(const std::string codec, bool hwonly) const;
     uint32_t getPixelFormat(bool flexible) const;
 #if CONFIG_VAAPI
     uint32_t getVAFormat() const;

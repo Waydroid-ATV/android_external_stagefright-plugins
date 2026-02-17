@@ -155,7 +155,39 @@ c2_status_t C2FFMPEGVideoDecodeComponent::openDecoder() {
     mExtradataReady = true;
 
     // Find decoder again as codec_id may have changed.
+#if CONFIG_VAAPI == 0
+    if (base::GetBoolProperty("media.sf.hwaccel", true)) {
+        switch (mCtx->codec_id) {
+            case AV_CODEC_ID_MPEG2VIDEO:
+                mCtx->codec = avcodec_find_decoder_by_name(mUtils->shouldEnableCodec("mpeg2.decoder", true) ? "mpeg2_v4l2m2m" : "mpeg2video");
+                break;
+            case AV_CODEC_ID_MPEG4:
+                mCtx->codec = avcodec_find_decoder_by_name(mUtils->shouldEnableCodec("mpeg4.decoder", true) ? "mpeg4_v4l2m2m" : "mpeg4");
+                break;
+            case AV_CODEC_ID_H263:
+                mCtx->codec = avcodec_find_decoder_by_name(mUtils->shouldEnableCodec("h263.decoder", true) ? "h263_v4l2m2m" : "h263");
+                break;
+            case AV_CODEC_ID_H264:
+                mCtx->codec = avcodec_find_decoder_by_name(mUtils->shouldEnableCodec("h264.decoder", true) ? "h264_v4l2m2m" : "h264");
+                break;
+            case AV_CODEC_ID_HEVC:
+                mCtx->codec = avcodec_find_decoder_by_name(mUtils->shouldEnableCodec("hevc.decoder", true) ? "hevc_v4l2m2m" : "hevc");
+                break;
+            case AV_CODEC_ID_VP8:
+                mCtx->codec = avcodec_find_decoder_by_name(mUtils->shouldEnableCodec("vp8.decoder", true) ? "vp8_v4l2m2m" : "vp8");
+                break;
+            case AV_CODEC_ID_VP9:
+                mCtx->codec = avcodec_find_decoder_by_name(mUtils->shouldEnableCodec("vp9.decoder", true) ? "vp9_v4l2m2m" : "vp9");
+                break;
+            default:
+                mCtx->codec = avcodec_find_decoder(mCtx->codec_id);
+        }
+    } else {
+        mCtx->codec = avcodec_find_decoder(mCtx->codec_id);
+    }
+#else
     mCtx->codec = avcodec_find_decoder(mCtx->codec_id);
+#endif
     if (! mCtx->codec) {
         ALOGE("openDecoder: ffmpeg video decoder failed to find codec %d", mCtx->codec_id);
         return C2_NOT_FOUND;
