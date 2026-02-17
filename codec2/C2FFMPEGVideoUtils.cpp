@@ -30,6 +30,34 @@ bool C2FFMPEGVideoUtils::isGrallocMinigbm() const {
     return (mGrallocName.find("minigbm") != std::string::npos);
 }
 
+bool C2FFMPEGVideoUtils::shouldEnableCodec(const std::string codec, bool hwonly) const {
+    using namespace ::android;
+
+    const std::string supported_codecs = base::GetProperty("ro.waydroid.hwcodecs", "");
+
+    // For MPEG-2/MPEG-4/H.263, always enable them unless hwonly is true
+    if (codec.find("mpeg2") != std::string::npos) {
+        return hwonly ? supported_codecs.find("MPG2") != std::string::npos : true;
+    } else if (codec.find("mpeg4") != std::string::npos) {
+        return hwonly ? supported_codecs.find("MPG4") != std::string::npos : true;
+    } else if (codec.find("h263") != std::string::npos) {
+        return hwonly ? supported_codecs.find("H263") != std::string::npos : true;
+    } else if (codec.find("h264") != std::string::npos) {
+        return supported_codecs.find("H264") != std::string::npos;
+    } else if (codec.find("hevc") != std::string::npos) {
+        return supported_codecs.find("HEVC") != std::string::npos;
+    } else if (codec.find("vp8") != std::string::npos) {
+        return supported_codecs.find("VP80") != std::string::npos;
+    } else if (codec.find("vp9") != std::string::npos) {
+        return supported_codecs.find("VP90") != std::string::npos;
+    } else if (codec.find("av1") != std::string::npos) {
+        return supported_codecs.find("AV10") != std::string::npos;
+    } else {
+        // We don't care about other codecs
+        return !hwonly;
+    }
+}
+
 PixelFormatType C2FFMPEGVideoUtils::getPixelFormatType() const {
     if (mOverridePixelFormat == "YUV_420") { return PixelFormatType::YUV_420;
     } else if (mOverridePixelFormat == "RGB_565") { return PixelFormatType::RGB_565;
