@@ -86,3 +86,9 @@ getegid32: 1
 getgroups32: 1
 sysinfo: 1
 
+# Required fy FFMPEG
+sched_getaffinity: 1
+sched_setaffinity: 1
+kcmp: 1
+sysinfo: 1
+mkdirat: 1
