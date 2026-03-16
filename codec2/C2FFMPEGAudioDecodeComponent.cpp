@@ -449,7 +449,7 @@ c2_status_t C2FFMPEGAudioDecodeComponent::getOutputBuffer(C2WriteView* outBuffer
 #endif
 
     return C2_OK;
-} 
+}
 
 void C2FFMPEGAudioDecodeComponent::updateAudioParameters() {
     mTargetSampleFormat = convertFormatToFFMPEG(mIntf->getPcmEncodingInfo());
