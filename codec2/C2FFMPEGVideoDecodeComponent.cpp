@@ -515,12 +515,12 @@ int C2FFMPEGVideoDecodeComponent::vaapi_vpp_convert(AVFrame *src, AVFrame *dst) 
     VAStatus vas;
 
     if (mVppWidth != dst->width || mVppHeight != dst->height || mVppContextId == VA_INVALID_ID) {
-        ALOGD("VPP: Init/Re-init context. Old: %dx%d, New: %dx%d", 
+        ALOGD("VPP: Init/Re-init context. Old: %dx%d, New: %dx%d",
               mVppWidth, mVppHeight, dst->width, dst->height);
-        
+
         // Destroy old context if it exists (handles resolution switches)
         destroyVppContext();
-        
+
         // 1. Create Config
         vas = vaCreateConfig(display, VAProfileNone, VAEntrypointVideoProc, NULL, 0, &mVppConfigId);
         if (vas != VA_STATUS_SUCCESS) {
@@ -529,14 +529,14 @@ int C2FFMPEGVideoDecodeComponent::vaapi_vpp_convert(AVFrame *src, AVFrame *dst) 
         }
 
         // 2. Create Context (Targeting the DESTINATION resolution)
-        vas = vaCreateContext(display, mVppConfigId, dst->width, dst->height, 
+        vas = vaCreateContext(display, mVppConfigId, dst->width, dst->height,
                               VA_PROGRESSIVE, NULL, 0, &mVppContextId);
         if (vas != VA_STATUS_SUCCESS) {
             ALOGE("VPP: vaCreateContext failed: %x", vas);
             destroyVppContext();
             return AVERROR_EXTERNAL;
         }
-        
+
         // Update cached state
         mVppWidth = dst->width;
         mVppHeight = dst->height;
@@ -557,13 +557,13 @@ int C2FFMPEGVideoDecodeComponent::vaapi_vpp_convert(AVFrame *src, AVFrame *dst) 
     params.output_background_color = 0xFF000000;
     params.filter_flags = VA_FILTER_SCALING_DEFAULT;
     // You can set this to VAProcColorStandardNone if colors look wrong
-    params.surface_color_standard = VAProcColorStandardBT709; 
+    params.surface_color_standard = VAProcColorStandardBT709;
     params.output_color_standard = VAProcColorStandardNone;
 
     VABufferID pipeline_buf = VA_INVALID_ID;
-    vas = vaCreateBuffer(display, mVppContextId, VAProcPipelineParameterBufferType, 
+    vas = vaCreateBuffer(display, mVppContextId, VAProcPipelineParameterBufferType,
                          sizeof(params), 1, &params, &pipeline_buf);
-    
+
     if (vas != VA_STATUS_SUCCESS) {
         ALOGE("VPP: vaCreateBuffer failed: %x", vas);
         return AVERROR_EXTERNAL;
@@ -624,20 +624,20 @@ c2_status_t C2FFMPEGVideoDecodeComponent::receiveFrame(bool* hasPicture) {
                 bool isHW = (tempFrame->format == AV_PIX_FMT_VAAPI);
                 if (isHW) {
                     // --- TRUE HARDWARE VPP PATH ---
-                    
+
                     // Prepare the Output RGB Frame (mFrame)
                     // We reuse mFrame to hold the RGB Gralloc buffer
-                    av_frame_unref(mFrame); 
-                    
+                    av_frame_unref(mFrame);
+
                     // Manually allocate the RGB Buffer using our Gralloc Logic
-                    // We pass the decoder's hw_frames_ctx just to satisfy the API, 
-                    // but our getBufferVAAPI implementation ignores the format check 
+                    // We pass the decoder's hw_frames_ctx just to satisfy the API,
+                    // but our getBufferVAAPI implementation ignores the format check
                     // and uses mUtils (RGB) anyway.
                     AVHWFramesContext* frames_ctx = (AVHWFramesContext*)mCtx->hw_frames_ctx->data;
                     int ret = getBufferVAAPI(frames_ctx, mFrame, true);
 
                     if (ret >= 0) {
-                        // Manually attach the hardware frames context. 
+                        // Manually attach the hardware frames context.
                         // This is required for getOutputBufferVAAPI to work later.
                         mFrame->hw_frames_ctx = av_buffer_ref(mCtx->hw_frames_ctx);
 
@@ -1368,14 +1368,14 @@ int C2FFMPEGVideoDecodeComponent::getBufferVAAPI(AVHWFramesContext* hwfc, AVFram
         return AVERROR(ENOSYS);
     }
 
-    // If we are in RGB mode, but the decoder asks for YUV, 
+    // If we are in RGB mode, but the decoder asks for YUV,
     // we MUST return ENOSYS to let FFmpeg use its internal YUV pool for decoding.
-    if (!forceAllocator) { 
+    if (!forceAllocator) {
         if (mUtils->getPixelFormatType() != PixelFormatType::YUV_420) {
-            if (hwfc->sw_format == AV_PIX_FMT_NV12 || 
+            if (hwfc->sw_format == AV_PIX_FMT_NV12 ||
                 hwfc->sw_format == AV_PIX_FMT_YUV420P ||
                 hwfc->sw_format == AV_PIX_FMT_P010) {
-                
+
                 ALOGV("getBufferVAAPI: Rejecting YUV request in RGB mode.");
                 return AVERROR(ENOSYS);
             }
@@ -1415,9 +1415,9 @@ int C2FFMPEGVideoDecodeComponent::getBufferVAAPI(AVHWFramesContext* hwfc, AVFram
                     if (h_it->second) {
                         // The driver is reusing a surface ID that we thought was still busy.
                         // Trust the driver/FFmpeg and clear our stale reference.
-                        ALOGW("getBufferVAAPI[%p]: Surface %#x reused by driver, clearing stale block.", 
+                        ALOGW("getBufferVAAPI[%p]: Surface %#x reused by driver, clearing stale block.",
                               hwfc, h_it->first);
-                        h_it->second.reset(); 
+                        h_it->second.reset();
                     }
 
                     if (mPendingSurfaces.find(h_it->first) != mPendingSurfaces.end()) {
@@ -1484,8 +1484,8 @@ int C2FFMPEGVideoDecodeComponent::getBufferVAAPI(AVHWFramesContext* hwfc, AVFram
         // Determine Bytes Per Pixel (BPP)
         int bpp = 1;
         uint32_t currentPixelFormat = mUtils->getPixelFormat(false);
-        
-        if (currentPixelFormat == HAL_PIXEL_FORMAT_RGBX_8888 || 
+
+        if (currentPixelFormat == HAL_PIXEL_FORMAT_RGBX_8888 ||
             currentPixelFormat == HAL_PIXEL_FORMAT_BGRA_8888) {
             bpp = 4;
         } else if (currentPixelFormat == HAL_PIXEL_FORMAT_RGB_565) {
@@ -1502,7 +1502,7 @@ int C2FFMPEGVideoDecodeComponent::getBufferVAAPI(AVHWFramesContext* hwfc, AVFram
         bool isYUV = (currentPixelFormat == HAL_PIXEL_FORMAT_YV12);
         descriptor.num_planes = isYUV ? 2 : 1;
 
-        descriptor.pitches[0] = desc.stride * bpp; 
+        descriptor.pitches[0] = desc.stride * bpp;
         descriptor.pitches[1] = isYUV ? desc.stride : 0;
         descriptor.pitches[2] = 0;
         descriptor.pitches[3] = 0;
@@ -1704,7 +1704,7 @@ int C2FFMPEGVideoDecodeComponent::framesGetBufferVAAPI(AVHWFramesContext* ctx, A
     // Try to allocate using our custom logic (Gralloc)
     int err = type->component->getBufferVAAPI(ctx, frame, false);
 
-    // If our component says "I don't handle this format" (ENOSYS), 
+    // If our component says "I don't handle this format" (ENOSYS),
     // fall back to the default FFmpeg VAAPI allocator.
     if (err == AVERROR(ENOSYS) && type->component->mUtils->getPixelFormatType() != PixelFormatType::YUV_420) {
         return type->parent_hw_type->frames_get_buffer(ctx, frame);

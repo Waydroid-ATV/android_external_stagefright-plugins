@@ -94,7 +94,7 @@ private:
     int32_t mVppWidth = 0;
     int32_t mVppHeight = 0;
     // Helper to clean up VPP resources
-    void destroyVppContext();    
+    void destroyVppContext();
     // The optimized converter function
     int vaapi_vpp_convert(AVFrame *src, AVFrame *dst);
 #endif
