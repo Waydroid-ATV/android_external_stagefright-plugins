@@ -49,8 +49,11 @@ int ffmpeg_hwaccel_init(AVCodecContext *avctx) {
 
     if (!avctx->hw_device_ctx) {
         ALOGD("ffmpeg_hwaccel_init: no HW accel found for codec = %s", codec->name);
+        return 1;
     }
 
+    // Update decoder again in case avctx->codec_id == AV_CODEC_ID_AV1 and VA-API is working
+    avctx->codec = codec;
     return 0;
 }
 
