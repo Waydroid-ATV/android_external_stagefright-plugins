@@ -22,6 +22,7 @@ extern "C" {
 #include <config.h>
 #include <libavutil/pixdesc.h>
 }
+#include <drm/drm_fourcc.h>
 #if CONFIG_VAAPI
 #include <va/va.h>
 #endif
@@ -42,17 +43,20 @@ public:
     virtual ~C2FFMPEGVideoUtils() = default;
 
     bool shouldEnableCodec(const std::string codec, bool hwonly) const;
+    bool isGrallocMinigbm() const;
     uint32_t getPixelFormat(bool flexible) const;
 #if CONFIG_VAAPI
     uint32_t getVAFormat() const;
     uint32_t getVAFOURCCFormat() const;
 #endif
+    uint32_t getDRMFOURCCFormat() const;
     enum AVPixelFormat getAVFormat() const;
     bool mSwapVAColorRGB;
     PixelFormatType getPixelFormatType() const;
 
 private:
     std::string mOverridePixelFormat;
+    std::string mGrallocName;
 };
 
 } // namespace android
