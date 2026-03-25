@@ -113,7 +113,6 @@ private:
     bool mCodecAlreadyOpened;
     bool mExtradataReady;
     bool mEOSSignalled;
-    bool mUseDrmPrime;
     bool mFilterInitialized;
     int mDeinterlaceMode;
     int mDeinterlaceIndicator;

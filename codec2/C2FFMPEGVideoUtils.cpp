@@ -22,6 +22,7 @@ namespace android {
 
 C2FFMPEGVideoUtils::C2FFMPEGVideoUtils()
     : mSwapVAColorRGB(base::GetBoolProperty("persist.ffmpeg-codec2.vaapi_rgb_swap_color", false)),
+      mUseDrmPrime(base::GetBoolProperty("debug.ffmpeg-codec2.hwaccel.drm", true)),
       mOverridePixelFormat(base::GetProperty("debug.ffmpeg-codec2.pixel_format", "YUV_420")),
       mGrallocName(base::GetProperty("ro.hardware.gralloc", "default")) {
 }
@@ -58,12 +59,25 @@ bool C2FFMPEGVideoUtils::shouldEnableCodec(const std::string codec, bool hwonly)
     }
 }
 
+bool C2FFMPEGVideoUtils::isPixelFormatYUV420() const {
+    switch (getPixelFormatType()) {
+        case PixelFormatType::YUV_420:
+        case PixelFormatType::YUV_420_PLANER:
+            return true;
+        default:
+            break;
+    }
+
+    return false;
+}
+
+bool C2FFMPEGVideoUtils::isVPPMode() const {
+    return (mUseDrmPrime && getPixelFormatType() != PixelFormatType::YUV_420);
+}
+
 PixelFormatType C2FFMPEGVideoUtils::getPixelFormatType() const {
-    if (mOverridePixelFormat == "YUV_420") { return PixelFormatType::YUV_420;
-    } else if (mOverridePixelFormat == "RGB_565") { return PixelFormatType::RGB_565;
-    } else if (mOverridePixelFormat == "RGBX_8888") { return PixelFormatType::RGBX_8888;
-    } else if (mOverridePixelFormat == "BGRA_8888") { return PixelFormatType::BGRA_8888;}
-    return PixelFormatType::UNKNOWN;
+    auto it = mPixelFormatMap.find(mOverridePixelFormat);
+    return (it != mPixelFormatMap.end()) ? it->second : PixelFormatType::UNKNOWN;
 }
 
 uint32_t C2FFMPEGVideoUtils::getPixelFormat(bool flexible) const {
@@ -72,7 +86,10 @@ uint32_t C2FFMPEGVideoUtils::getPixelFormat(bool flexible) const {
             if (flexible) { // Corrected comparison here
                 return HAL_PIXEL_FORMAT_YCbCr_420_888;
             } else {
-                return HAL_PIXEL_FORMAT_YV12;}
+                return HAL_PIXEL_FORMAT_YV12;
+            }
+        case PixelFormatType::YUV_420_PLANER:
+            return HAL_PIXEL_FORMAT_YV12;
         case PixelFormatType::RGB_565:
             return HAL_PIXEL_FORMAT_RGB_565;
         case PixelFormatType::RGBX_8888:
@@ -90,6 +107,7 @@ uint32_t C2FFMPEGVideoUtils::getPixelFormat(bool flexible) const {
 uint32_t C2FFMPEGVideoUtils::getVAFormat() const {
     switch (getPixelFormatType()) {
         case PixelFormatType::YUV_420:
+        case PixelFormatType::YUV_420_PLANER:
             return VA_RT_FORMAT_YUV420;
         case PixelFormatType::RGB_565:
             return VA_RT_FORMAT_RGB16;
@@ -107,6 +125,8 @@ uint32_t C2FFMPEGVideoUtils::getVAFOURCCFormat() const {
     switch (getPixelFormatType()) {
         case PixelFormatType::YUV_420:
             return VA_FOURCC_NV12;
+        case PixelFormatType::YUV_420_PLANER:
+            return VA_FOURCC_YV12;
         case PixelFormatType::RGB_565:
             return VA_FOURCC_RGB565;
         case PixelFormatType::RGBX_8888:
@@ -124,7 +144,9 @@ uint32_t C2FFMPEGVideoUtils::getVAFOURCCFormat() const {
 uint32_t C2FFMPEGVideoUtils::getDRMFOURCCFormat() const {
     switch (getPixelFormatType()) {
         case PixelFormatType::YUV_420:
-            return DRM_FORMAT_NV12;
+            return mUseDrmPrime ? DRM_FORMAT_NV12 : DRM_FORMAT_YVU420;
+        case PixelFormatType::YUV_420_PLANER:
+            return DRM_FORMAT_YVU420;
         case PixelFormatType::RGB_565:
             return DRM_FORMAT_RGB565;
         case PixelFormatType::RGBX_8888:
@@ -141,6 +163,8 @@ uint32_t C2FFMPEGVideoUtils::getDRMFOURCCFormat() const {
 enum AVPixelFormat C2FFMPEGVideoUtils::getAVFormat() const {
     switch (getPixelFormatType()) {
         case PixelFormatType::YUV_420:
+            return mUseDrmPrime ? AV_PIX_FMT_NV12 : AV_PIX_FMT_YUV420P;
+        case PixelFormatType::YUV_420_PLANER:
             return AV_PIX_FMT_YUV420P;
         case PixelFormatType::RGB_565:
             return AV_PIX_FMT_RGB565;

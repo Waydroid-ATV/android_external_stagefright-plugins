@@ -120,6 +120,18 @@ c2_status_t C2FFMPEGVideoDecodeComponent::initDecoder() {
         ALOGE("initDecoder: cannot query picture size, err = %d", err);
     }
 
+#if CONFIG_VAAPI
+    // Android and libva seem to have different alignment requirements for YV12,
+    // which result in scrambled output at specific resolutions
+    //
+    // As a workaround, align output dimensions to 64 when using YV12 in DRM prime mode
+    if (mUtils->mUseDrmPrime && mUtils->getPixelFormatType() == PixelFormatType::YUV_420_PLANER) {
+        size.width = ALIGN(size.width, 64);
+        size.height = ALIGN(size.height, 64);
+        mIntf->config({ &size }, C2_MAY_BLOCK, nullptr);
+    }
+#endif
+
     mCtx->codec_type = AVMEDIA_TYPE_VIDEO;
     mCtx->codec_id = mCodecID;
     mCtx->extradata_size = 0;
@@ -134,13 +146,12 @@ c2_status_t C2FFMPEGVideoDecodeComponent::initDecoder() {
         mCtx->codec_id = (enum AVCodecID)codecInfo->codec_id;
     }
 
-    mUseDrmPrime = base::GetBoolProperty("debug.ffmpeg-codec2.hwaccel.drm", true);
     mDeinterlaceMode = getDeinterlaceMode();
     mDeinterlaceIndicator = 0;
 
     ALOGD("initDecoder: %p [%s], %d x %d, %s, usage = %#" PRIx64 ", use-drm-prime = %d, deinterlace = %d",
           mCtx, avcodec_get_name(mCtx->codec_id), size.width, size.height, mInfo->mediaType,
-          mIntf->getConsumerUsage(), mUseDrmPrime, mDeinterlaceMode);
+          mIntf->getConsumerUsage(), mUtils->mUseDrmPrime, mDeinterlaceMode);
 
     return C2_OK;
 }
@@ -215,7 +226,7 @@ c2_status_t C2FFMPEGVideoDecodeComponent::openDecoder() {
 #if CONFIG_VAAPI
     if (mCtx->hw_device_ctx
             && ((AVHWDeviceContext*)mCtx->hw_device_ctx->data)->type == AV_HWDEVICE_TYPE_VAAPI
-            && mUseDrmPrime) {
+            && mUtils->mUseDrmPrime) {
         openDecoderVAAPI();
     }
 #endif
@@ -256,8 +267,8 @@ void C2FFMPEGVideoDecodeComponent::deInitDecoder() {
 #if CONFIG_VAAPI
         if (mCtx->hw_frames_ctx
                 && mCtx->pix_fmt == AV_PIX_FMT_VAAPI
-                && mUseDrmPrime) {
-            if (mUtils->getPixelFormatType() != PixelFormatType::YUV_420) {
+                && mUtils->mUseDrmPrime) {
+            if (mUtils->isVPPMode()) {
                 destroyVppContext();
             }
 
@@ -646,12 +657,7 @@ c2_status_t C2FFMPEGVideoDecodeComponent::receiveFrame(bool* hasPicture) {
 
     *hasPicture = false;
 #if CONFIG_VAAPI
-    // Check if we are in the RGB Hardware mode
-    bool isRGB = (mUtils->getPixelFormatType() != PixelFormatType::YUV_420);
-
-    if (mCtx->hw_frames_ctx
-            && mUseDrmPrime
-            && isRGB) {
+    if (mCtx->hw_frames_ctx && mUtils->isVPPMode()) {
         AVFrame* tempFrame = av_frame_alloc();
         int err = avcodec_receive_frame(mCtx, tempFrame);
             if (err == 0) {
@@ -659,14 +665,14 @@ c2_status_t C2FFMPEGVideoDecodeComponent::receiveFrame(bool* hasPicture) {
                 if (isHW) {
                     // --- TRUE HARDWARE VPP PATH ---
 
-                    // Prepare the Output RGB Frame (mFrame)
-                    // We reuse mFrame to hold the RGB Gralloc buffer
+                    // Prepare the Output RGB/YV12 Frame (mFrame)
+                    // We reuse mFrame to hold the RGB/YV12 Gralloc buffer
                     av_frame_unref(mFrame);
 
-                    // Manually allocate the RGB Buffer using our Gralloc Logic
+                    // Manually allocate the RGB/YV12 Buffer using our Gralloc Logic
                     // We pass the decoder's hw_frames_ctx just to satisfy the API,
                     // but our getBufferVAAPI implementation ignores the format check
-                    // and uses mUtils (RGB) anyway.
+                    // and uses mUtils (RGB/YV12) anyway.
                     AVHWFramesContext* frames_ctx = (AVHWFramesContext*)mCtx->hw_frames_ctx->data;
                     int ret = getBufferVAAPI(frames_ctx, mFrame, true);
 
@@ -675,7 +681,7 @@ c2_status_t C2FFMPEGVideoDecodeComponent::receiveFrame(bool* hasPicture) {
                         // This is required for getOutputBufferVAAPI to work later.
                         mFrame->hw_frames_ctx = av_buffer_ref(mCtx->hw_frames_ctx);
 
-                        // Perform GPU VPP Blit (YUV Surface -> RGB Surface)
+                        // Perform GPU VPP Blit (NV12 Surface -> RGB/YV12 Surface)
                         // This calls the custom VA-API function we just wrote
                         ret = vaapi_vpp_convert(tempFrame, mFrame);
 
@@ -690,11 +696,11 @@ c2_status_t C2FFMPEGVideoDecodeComponent::receiveFrame(bool* hasPicture) {
                             *hasPicture = true;
                         }
                     } else {
-                        ALOGE("VPP: Failed to allocate RGB Gralloc buffer");
+                        ALOGE("VPP: Failed to allocate RGB/YV12 Gralloc buffer");
                         *hasPicture = false;
                     }
 
-                    // Clean up the internal YUV frame, we don't need it anymore
+                    // Clean up the internal NV12 frame, we don't need it anymore
                     av_frame_free(&tempFrame);
                 } else {
                     // Move tempFrame to mFrame efficiently
@@ -848,7 +854,7 @@ c2_status_t C2FFMPEGVideoDecodeComponent::downloadFrame(bool forceSw) {
 #if CONFIG_VAAPI
     if (!forceSw
             && mFrame->format == AV_PIX_FMT_VAAPI
-            && mUseDrmPrime) {
+            && mUtils->mUseDrmPrime) {
         return C2_OK;
     }
 #endif
@@ -1402,29 +1408,32 @@ int C2FFMPEGVideoDecodeComponent::getBufferVAAPI(AVHWFramesContext* hwfc, AVFram
         return AVERROR(ENOSYS);
     }
 
-    // If we are in RGB mode, but the decoder asks for YUV,
+    // If we are in VPP mode, and the decoder asks for other formats,
     // we MUST return ENOSYS to let FFmpeg use its internal YUV pool for decoding.
-    if (!forceAllocator) {
-        if (mUtils->getPixelFormatType() != PixelFormatType::YUV_420) {
-            if (hwfc->sw_format == AV_PIX_FMT_NV12 ||
-                hwfc->sw_format == AV_PIX_FMT_YUV420P ||
-                hwfc->sw_format == AV_PIX_FMT_P010) {
-
-                ALOGV("getBufferVAAPI: Rejecting YUV request in RGB mode.");
-                return AVERROR(ENOSYS);
-            }
-        }
+    if (!(forceAllocator || mUtils->getAVFormat() == hwfc->sw_format)) {
+        ALOGV("getBufferVAAPI: Rejecting request with non-matching pixel format in VPP mode.");
+        return AVERROR(ENOSYS);
     }
 
     AVVAAPIDeviceContext* hwctx = (AVVAAPIDeviceContext*)hwfc->device_ctx->hwctx;
 
-    if (mCtx->coded_width != mSurfaceWidth || mCtx->coded_height != mSurfaceHeight) {
+    int newWidth, newHeight;
+
+    if (forceAllocator && mUtils->getPixelFormatType() == PixelFormatType::YUV_420_PLANER) {
+        newWidth = ALIGN(mCtx->coded_width, 64);
+        newHeight = ALIGN(mCtx->coded_height, 64);
+    } else {
+        newWidth = mCtx->coded_width;
+        newHeight = mCtx->coded_height;
+    }
+
+    if (newWidth != mSurfaceWidth || newHeight != mSurfaceHeight) {
         ALOGD("getBufferVAAPI[%p]: set surface dimension to %d x %d, surfaces = %zd, held = %zd, pending = %zd, available = %zd",
-              hwfc, mCtx->coded_width, mCtx->coded_height, mSurfaces.size(), mHeldSurfaces.size(), mPendingSurfaces.size(), mAvailableSurfaces.size());
+              hwfc, newWidth, newHeight, mSurfaces.size(), mHeldSurfaces.size(), mPendingSurfaces.size(), mAvailableSurfaces.size());
         mPendingSurfaces.clear();
         mAvailableSurfaces.clear();
-        mSurfaceWidth = mCtx->coded_width;
-        mSurfaceHeight = mCtx->coded_height;
+        mSurfaceWidth = newWidth;
+        mSurfaceHeight = newHeight;
     }
 
     c2_status_t err;
@@ -1548,7 +1557,7 @@ int C2FFMPEGVideoDecodeComponent::getBufferVAAPI(AVHWFramesContext* hwfc, AVFram
                 bpp = 2;
             }
 
-            bool isYUV = (currentPixelFormat == HAL_PIXEL_FORMAT_YV12);
+            bool isYUV = mUtils->isPixelFormatYUV420();
 
             // gbm does not support YUV, so always assume linear buffer
             descriptor.objects[0].drm_format_modifier = 0;
@@ -1599,8 +1608,8 @@ int C2FFMPEGVideoDecodeComponent::getBufferVAAPI(AVHWFramesContext* hwfc, AVFram
 
     frame->data[3] = frame->buf[0]->data;
     frame->format = AV_PIX_FMT_VAAPI;
-    frame->width = hwfc->width;
-    frame->height = hwfc->height;
+    frame->width = mSurfaceWidth;
+    frame->height = mSurfaceHeight;
 
     mHeldSurfaces.emplace(surfaceId, std::move(block));
 
@@ -1736,7 +1745,7 @@ void C2FFMPEGVideoDecodeComponent::openDecoderVAAPI() {
 
     type->hw_type = *device_ctx_internal->hw_type;
     type->hw_type.frames_get_buffer = framesGetBufferVAAPI;
-    if (mUseDrmPrime && mUtils->getPixelFormatType() != PixelFormatType::YUV_420) {
+    if (mUtils->isVPPMode()) {
         type->hw_type.frames_init = framesInit;
         type->hw_type.frames_uninit = framesUninit;
     } else {
@@ -1760,7 +1769,7 @@ int C2FFMPEGVideoDecodeComponent::framesGetBufferVAAPI(AVHWFramesContext* ctx, A
 
     // If our component says "I don't handle this format" (ENOSYS),
     // fall back to the default FFmpeg VAAPI allocator.
-    if (err == AVERROR(ENOSYS) && type->component->mUtils->getPixelFormatType() != PixelFormatType::YUV_420) {
+    if (err == AVERROR(ENOSYS) && type->component->mUtils->isVPPMode()) {
         return type->parent_hw_type->frames_get_buffer(ctx, frame);
     }
 
