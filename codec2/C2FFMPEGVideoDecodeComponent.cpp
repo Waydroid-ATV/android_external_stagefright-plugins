@@ -1404,14 +1404,9 @@ int C2FFMPEGVideoDecodeComponent::getBufferVAAPI(AVHWFramesContext* hwfc, AVFram
     // If we are in RGB mode, but the decoder asks for YUV,
     // we MUST return ENOSYS to let FFmpeg use its internal YUV pool for decoding.
     if (!forceAllocator) {
-        if (mUtils->getPixelFormatType() != PixelFormatType::YUV_420) {
-            if (hwfc->sw_format == AV_PIX_FMT_NV12 ||
-                hwfc->sw_format == AV_PIX_FMT_YUV420P ||
-                hwfc->sw_format == AV_PIX_FMT_P010) {
-
-                ALOGV("getBufferVAAPI: Rejecting YUV request in RGB mode.");
-                return AVERROR(ENOSYS);
-            }
+        if (mUtils->getAVFormat() != hwfc->sw_format) {
+            ALOGV("getBufferVAAPI: Rejecting YUV request in RGB mode.");
+            return AVERROR(ENOSYS);
         }
     }
 

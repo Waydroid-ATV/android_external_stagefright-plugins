@@ -18,6 +18,7 @@
 #define C2FFMPEG_VIDEO_UTILS_H
 
 #include <string>
+#include <map>
 extern "C" {
 #include <config.h>
 #include <libavutil/pixdesc.h>
@@ -31,6 +32,7 @@ namespace android {
 
 enum class PixelFormatType {
     YUV_420,
+    YUV_420_PLANER,
     RGB_565,
     RGBX_8888,
     BGRA_8888,
@@ -44,6 +46,7 @@ public:
 
     bool shouldEnableCodec(const std::string codec, bool hwonly) const;
     bool isGrallocMinigbm() const;
+    bool isPixelFormatYUV420() const;
     uint32_t getPixelFormat(bool flexible) const;
 #if CONFIG_VAAPI
     uint32_t getVAFormat() const;
@@ -52,9 +55,18 @@ public:
     uint32_t getDRMFOURCCFormat() const;
     enum AVPixelFormat getAVFormat() const;
     bool mSwapVAColorRGB;
+    bool mUseDrmPrime;
     PixelFormatType getPixelFormatType() const;
 
 private:
+    const std::map<std::string, PixelFormatType> mPixelFormatMap = {
+        { "YUV_420", PixelFormatType::YUV_420 },
+        { "YUV_420_PLANER", PixelFormatType::YUV_420_PLANER },
+        { "RGB_565", PixelFormatType::RGB_565 },
+        { "RGBX_8888", PixelFormatType::RGBX_8888 },
+        { "BGRA_8888", PixelFormatType::BGRA_8888 }
+    };
+
     std::string mOverridePixelFormat;
     std::string mGrallocName;
 };

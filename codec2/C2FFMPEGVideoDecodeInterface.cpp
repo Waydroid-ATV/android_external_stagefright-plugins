@@ -218,7 +218,7 @@ C2FFMPEGVideoDecodeInterface::C2FFMPEGVideoDecodeInterface(
 
     std::shared_ptr<C2StreamColorInfo::output> defaultColorInfo = nullptr;
 
-    if (mUtils->getPixelFormat(false) == HAL_PIXEL_FORMAT_YV12) {
+    if (mUtils->isPixelFormatYUV420()) {
         C2ChromaOffsetStruct locations[1] = { C2ChromaOffsetStruct::ITU_YUV_420_0() };
         defaultColorInfo =
                 C2StreamColorInfo::output::AllocShared(
