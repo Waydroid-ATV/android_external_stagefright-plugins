@@ -20,6 +20,10 @@ int ffmpeg_hwaccel_init(AVCodecContext *avctx) {
         return 0;
     }
 
+    // Use Vulkan Video if requested.
+    const enum AVHWDeviceType preferred_type = property_get_bool("debug.ffmpeg-codec2.hwaccel.vulkan", false) ?
+                                               AV_HWDEVICE_TYPE_VULKAN : AV_HWDEVICE_TYPE_VAAPI;
+
     // Find a working HW configuration for this codec.
     for (int i = 0;; i++) {
         const AVCodecHWConfig* config = avcodec_get_hw_config(codec, i);
@@ -28,8 +32,13 @@ int ffmpeg_hwaccel_init(AVCodecContext *avctx) {
             break;
         }
 
+        if (config->device_type != preferred_type) {
+            // Skip config with mismatching type.
+            continue;
+        }
+
         // Try to initialize HW device.
-        if (av_hwdevice_ctx_create(&avctx->hw_device_ctx, config->device_type, "android", NULL, 0) < 0) {
+        if (av_hwdevice_ctx_create(&avctx->hw_device_ctx, config->device_type, preferred_type == AV_HWDEVICE_TYPE_VAAPI ? "android" : NULL, NULL, 0) < 0) {
             // Initialization failed, skip this HW config.
             ALOGD_IF(DEBUG_HWACCEL, "ffmpeg_hwaccel_init: failed to initialize HW device %s",
                      av_hwdevice_get_type_name(config->device_type));
