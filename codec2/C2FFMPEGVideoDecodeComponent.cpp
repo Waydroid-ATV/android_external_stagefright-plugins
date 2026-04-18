@@ -228,6 +228,8 @@ c2_status_t C2FFMPEGVideoDecodeComponent::openDecoder() {
             && ((AVHWDeviceContext*)mCtx->hw_device_ctx->data)->type == AV_HWDEVICE_TYPE_VAAPI
             && mUtils->mUseDrmPrime) {
         openDecoderVAAPI();
+    } else {
+        mUtils->mUseDrmPrime = false;
     }
 #endif
 
