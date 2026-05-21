@@ -127,10 +127,11 @@ C2FFMPEGVideoDecodeInterface::C2FFMPEGVideoDecodeInterface(
         addParameter(
                 DefineParam(mProfileLevel, C2_PARAMKEY_PROFILE_LEVEL)
                 .withDefault(new C2StreamProfileLevelInfo::input(0u,
-                        C2Config::PROFILE_HEVC_MAIN, C2Config::LEVEL_HEVC_MAIN_5_1))
+                        C2Config::PROFILE_HEVC_MAIN_10, C2Config::LEVEL_HEVC_MAIN_5_1))
                 .withFields({
                     C2F(mProfileLevel, profile).oneOf({
                             C2Config::PROFILE_HEVC_MAIN,
+                            C2Config::PROFILE_HEVC_MAIN_10,
                             C2Config::PROFILE_HEVC_MAIN_STILL}),
                     C2F(mProfileLevel, level).oneOf({
                             C2Config::LEVEL_HEVC_MAIN_1,
@@ -218,21 +219,23 @@ C2FFMPEGVideoDecodeInterface::C2FFMPEGVideoDecodeInterface(
 
     std::shared_ptr<C2StreamColorInfo::output> defaultColorInfo = nullptr;
 
+    const uint32_t defaultBitDepth = mUtils->getBitDepth();
+
     if (mUtils->isPixelFormatYUV420()) {
         C2ChromaOffsetStruct locations[1] = { C2ChromaOffsetStruct::ITU_YUV_420_0() };
         defaultColorInfo =
                 C2StreamColorInfo::output::AllocShared(
-                        1u, 0u, 8u /* bitDepth */, C2Color::YUV_420);
+                        1u, 0u, defaultBitDepth, C2Color::YUV_420);
         memcpy(defaultColorInfo->m.locations, locations, sizeof(locations));
 
         defaultColorInfo =
                 C2StreamColorInfo::output::AllocShared(
                         { C2ChromaOffsetStruct::ITU_YUV_420_0() },
-                        0u, 8u /* bitDepth */, C2Color::YUV_420);
+                        0u, defaultBitDepth, C2Color::YUV_420);
     } else {
         defaultColorInfo =
                 C2StreamColorInfo::output::AllocShared(
-                        0u, 0u, 8u /* bitDepth */, C2Color::RGB);
+                        0u, 0u, defaultBitDepth, C2Color::RGB);
         helper->addStructDescriptors<C2ChromaOffsetStruct>();
     }
 

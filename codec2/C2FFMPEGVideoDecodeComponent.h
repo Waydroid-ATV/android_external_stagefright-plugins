@@ -75,6 +75,14 @@ private:
         const std::shared_ptr<C2BlockPool> &pool);
     c2_status_t downloadFrame(bool forceSw);
     c2_status_t reconfigureOutputDelay(std::vector<std::unique_ptr<C2Param>>& configUpdate);
+    bool shouldUseP010Output(const AVHWFramesContext* hwfc = nullptr) const;
+    uint32_t getActivePixelFormat(bool flexible, const AVHWFramesContext* hwfc = nullptr) const;
+#if CONFIG_VAAPI
+    uint32_t getActiveVAFormat(const AVHWFramesContext* hwfc = nullptr) const;
+    uint32_t getActiveVAFOURCCFormat(const AVHWFramesContext* hwfc = nullptr) const;
+#endif
+    uint32_t getActiveDRMFOURCCFormat(const AVHWFramesContext* hwfc = nullptr) const;
+    enum AVPixelFormat getActiveAVFormat(const AVHWFramesContext* hwfc = nullptr) const;
 
     void pushPendingWork(const std::unique_ptr<C2Work>& work);
     void popPendingWork(const std::unique_ptr<C2Work>& work);

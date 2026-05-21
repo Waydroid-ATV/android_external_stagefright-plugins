@@ -38,6 +38,7 @@ public:
         getPixelFormatInfo() const { return mPixelFormat; }
     uint32_t getPixelFormat() const { return mPixelFormat->value; }
     uint32_t getOutputDelay() const { return mActualOutputDelay->value; }
+    uint32_t getBitDepth() const { return mUtils->getBitDepth(); }
 
 private:
     static C2R SizeSetter(

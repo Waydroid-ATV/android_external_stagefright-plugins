@@ -871,6 +871,54 @@ c2_status_t C2FFMPEGVideoDecodeComponent::downloadFrame(bool forceSw) {
     return C2_OK;
 }
 
+bool C2FFMPEGVideoDecodeComponent::shouldUseP010Output(const AVHWFramesContext* hwfc) const {
+#if CONFIG_VAAPI
+    if (hwfc && hwfc->sw_format == AV_PIX_FMT_P010) {
+        return true;
+    }
+#else
+    (void)hwfc;
+#endif
+    return mUtils->getPixelFormatType() == PixelFormatType::YUV_420_P010;
+}
+
+uint32_t C2FFMPEGVideoDecodeComponent::getActivePixelFormat(bool flexible, const AVHWFramesContext* hwfc) const {
+    if (shouldUseP010Output(hwfc)) {
+        return HAL_PIXEL_FORMAT_YCBCR_P010;
+    }
+    return mUtils->getPixelFormat(flexible);
+}
+
+#if CONFIG_VAAPI
+uint32_t C2FFMPEGVideoDecodeComponent::getActiveVAFormat(const AVHWFramesContext* hwfc) const {
+    if (shouldUseP010Output(hwfc)) {
+        return VA_RT_FORMAT_YUV420_10BPP;
+    }
+    return mUtils->getVAFormat();
+}
+
+uint32_t C2FFMPEGVideoDecodeComponent::getActiveVAFOURCCFormat(const AVHWFramesContext* hwfc) const {
+    if (shouldUseP010Output(hwfc)) {
+        return VA_FOURCC_P010;
+    }
+    return mUtils->getVAFOURCCFormat();
+}
+#endif
+
+uint32_t C2FFMPEGVideoDecodeComponent::getActiveDRMFOURCCFormat(const AVHWFramesContext* hwfc) const {
+    if (shouldUseP010Output(hwfc)) {
+        return DRM_FORMAT_P010;
+    }
+    return mUtils->getDRMFOURCCFormat();
+}
+
+enum AVPixelFormat C2FFMPEGVideoDecodeComponent::getActiveAVFormat(const AVHWFramesContext* hwfc) const {
+    if (shouldUseP010Output(hwfc)) {
+        return AV_PIX_FMT_P010;
+    }
+    return mUtils->getAVFormat();
+}
+
 std::shared_ptr<C2Buffer> C2FFMPEGVideoDecodeComponent::getOutputBuffer(const std::shared_ptr<C2BlockPool>& pool) {
 #if CONFIG_VAAPI
     if (mFrame->format == AV_PIX_FMT_VAAPI) {
@@ -881,11 +929,11 @@ std::shared_ptr<C2Buffer> C2FFMPEGVideoDecodeComponent::getOutputBuffer(const st
     std::shared_ptr<C2GraphicBlock> block;
     c2_status_t err;
 
-    err = pool->fetchGraphicBlock(ALIGN(mFrame->width, 16), ALIGN(mFrame->height, 2), mUtils->getPixelFormat(false),
+    err = pool->fetchGraphicBlock(ALIGN(mFrame->width, 16), ALIGN(mFrame->height, 2), getActivePixelFormat(false),
                                   { C2MemoryUsage::CPU_READ, C2MemoryUsage::CPU_WRITE }, &block);
     if (err != C2_OK) {
         ALOGE("getOutputBuffer: failed to fetch graphic block %d x %d (%#x) err = %d",
-              mFrame->width, mFrame->height, mUtils->getPixelFormat(false), err);
+              mFrame->width, mFrame->height, getActivePixelFormat(false), err);
         return NULL;
     }
 
@@ -902,7 +950,14 @@ std::shared_ptr<C2Buffer> C2FFMPEGVideoDecodeComponent::getOutputBuffer(const st
     C2PlanarLayout layout = wView.layout();
     struct SwsContext* currentImgConvertCtx = mImgConvertCtx;
 
-    if (mUtils->getPixelFormat(false) == HAL_PIXEL_FORMAT_YV12) {
+    if (getActivePixelFormat(false) == HAL_PIXEL_FORMAT_YCBCR_P010) {
+        data[0] = wView.data()[C2PlanarLayout::PLANE_Y];
+        data[1] = wView.data()[C2PlanarLayout::PLANE_U];
+        data[2] = data[3] = nullptr;
+        linesize[0] = layout.planes[C2PlanarLayout::PLANE_Y].rowInc;
+        linesize[1] = layout.planes[C2PlanarLayout::PLANE_U].rowInc;
+        linesize[2] = linesize[3] = 0;
+    } else if (mUtils->getPixelFormat(false) == HAL_PIXEL_FORMAT_YV12) {
         data[0] = wView.data()[C2PlanarLayout::PLANE_Y];
         data[1] = wView.data()[C2PlanarLayout::PLANE_U];
         data[2] = wView.data()[C2PlanarLayout::PLANE_V];
@@ -923,11 +978,11 @@ std::shared_ptr<C2Buffer> C2FFMPEGVideoDecodeComponent::getOutputBuffer(const st
 
     mImgConvertCtx = sws_getCachedContext(currentImgConvertCtx,
            mFrame->width, mFrame->height, (AVPixelFormat)mFrame->format,
-           mFrame->width, mFrame->height, mUtils->getAVFormat(),
+           mFrame->width, mFrame->height, getActiveAVFormat(),
            SWS_BICUBIC, NULL, NULL, NULL);
     if (mImgConvertCtx && mImgConvertCtx != currentImgConvertCtx) {
         ALOGD("getOutputBuffer: created video converter - %s => %s",
-              av_get_pix_fmt_name((AVPixelFormat)mFrame->format), av_get_pix_fmt_name(mUtils->getAVFormat()));
+              av_get_pix_fmt_name((AVPixelFormat)mFrame->format), av_get_pix_fmt_name(getActiveAVFormat()));
     } else if (! mImgConvertCtx) {
         ALOGE("getOutputBuffer: cannot initialize the conversion context");
         return NULL;
@@ -1118,15 +1173,20 @@ c2_status_t C2FFMPEGVideoDecodeComponent::outputFrame(
     }
 
 #if CONFIG_VAAPI
-    if (mFrame->format == AV_PIX_FMT_VAAPI && mIntf->getPixelFormat() != mUtils->getPixelFormat(true)) {
-        ALOGD("outputFrame: pixel format changed - %#x", mUtils->getPixelFormat(true));
+    AVHWFramesContext* hwfc = mFrame->hw_frames_ctx ? (AVHWFramesContext*)mFrame->hw_frames_ctx->data : nullptr;
+    if (mFrame->format == AV_PIX_FMT_VAAPI && mIntf->getPixelFormat() != getActivePixelFormat(true, hwfc)) {
+        ALOGD("outputFrame: pixel format changed - %#x", getActivePixelFormat(true, hwfc));
 
-        C2StreamPixelFormatInfo::output format(0u, mUtils->getPixelFormat(true));
+        C2StreamPixelFormatInfo::output format(0u, getActivePixelFormat(true, hwfc));
         std::vector<std::unique_ptr<C2SettingResult>> failures;
 
         err = mIntf->config({ &format }, C2_MAY_BLOCK, &failures);
         if (err == C2_OK) {
             configUpdate.push_back(C2Param::Copy(format));
+            // C2_PARAMKEY_CODED_COLOR_INFO is exposed as a const value by the
+            // component interface, so it cannot be reconfigured after the
+            // stream starts. The active output pixel format is enough for the
+            // graphic buffer allocation path to switch to P010.
         } else {
             ALOGE("outputFrame: config update failed err = %d", err);
             return C2_CORRUPTED;
@@ -1412,7 +1472,7 @@ int C2FFMPEGVideoDecodeComponent::getBufferVAAPI(AVHWFramesContext* hwfc, AVFram
 
     // If we are in VPP mode, and the decoder asks for other formats,
     // we MUST return ENOSYS to let FFmpeg use its internal YUV pool for decoding.
-    if (!(forceAllocator || mUtils->getAVFormat() == hwfc->sw_format)) {
+    if (!(forceAllocator || getActiveAVFormat(hwfc) == hwfc->sw_format)) {
         ALOGV("getBufferVAAPI: Rejecting request with non-matching pixel format in VPP mode.");
         return AVERROR(ENOSYS);
     }
@@ -1444,11 +1504,11 @@ int C2FFMPEGVideoDecodeComponent::getBufferVAAPI(AVHWFramesContext* hwfc, AVFram
 
     while (!block) {
         if (mAvailableSurfaces.empty()) {
-            err = mBlockPool->fetchGraphicBlock(mSurfaceWidth, mSurfaceHeight, mUtils->getPixelFormat(true),
+            err = mBlockPool->fetchGraphicBlock(mSurfaceWidth, mSurfaceHeight, getActivePixelFormat(true, hwfc),
                                                 { mIntf->getConsumerUsage(), (uint64_t)BufferUsage::VIDEO_DECODER }, &block);
             if (err != C2_OK) {
                 ALOGE("getBufferVAAPI[%p]: failed to fetch graphic block %d x %d (%#x) err = %d",
-                      hwfc, mSurfaceWidth, mSurfaceHeight, mUtils->getPixelFormat(true), err);
+                      hwfc, mSurfaceWidth, mSurfaceHeight, getActivePixelFormat(true, hwfc), err);
                 return AVERROR(ENOMEM);
             }
             desc.set(block);
@@ -1527,7 +1587,7 @@ int C2FFMPEGVideoDecodeComponent::getBufferVAAPI(AVHWFramesContext* hwfc, AVFram
             }
         };
 
-        descriptor.fourcc = mUtils->getVAFOURCCFormat();
+        descriptor.fourcc = getActiveVAFOURCCFormat(hwfc);
         descriptor.width = mSurfaceWidth;
         descriptor.height = mSurfaceHeight;
         descriptor.num_objects = 1;
@@ -1550,7 +1610,7 @@ int C2FFMPEGVideoDecodeComponent::getBufferVAAPI(AVHWFramesContext* hwfc, AVFram
         } else {
             // Determine Bytes Per Pixel (BPP)
             int bpp = 1;
-            uint32_t currentPixelFormat = mUtils->getPixelFormat(false);
+            uint32_t currentPixelFormat = getActivePixelFormat(false, hwfc);
 
             if (currentPixelFormat == HAL_PIXEL_FORMAT_RGBX_8888 ||
                 currentPixelFormat == HAL_PIXEL_FORMAT_BGRA_8888) {
@@ -1568,7 +1628,7 @@ int C2FFMPEGVideoDecodeComponent::getBufferVAAPI(AVHWFramesContext* hwfc, AVFram
                 descriptor.layers[0].offset[1] + desc.stride * ALIGN(desc.height / 2, 32) :
                 desc.stride * desc.height * bpp; // Multiply by bpp
 
-            descriptor.layers[0].drm_format = mUtils->getDRMFOURCCFormat();
+            descriptor.layers[0].drm_format = getActiveDRMFOURCCFormat(hwfc);
             descriptor.layers[0].num_planes = isYUV ? 2 : 1;
 
             descriptor.layers[0].pitch[0] = desc.stride * bpp;
@@ -1581,7 +1641,7 @@ int C2FFMPEGVideoDecodeComponent::getBufferVAAPI(AVHWFramesContext* hwfc, AVFram
             descriptor.layers[0].offset[3] = 0;
         }
 
-        vas = vaCreateSurfaces(hwctx->display, mUtils->getVAFormat(),
+        vas = vaCreateSurfaces(hwctx->display, getActiveVAFormat(hwfc),
                                mSurfaceWidth, mSurfaceHeight, &surfaceId, 1, attributes, 2);
 
         if (vas != VA_STATUS_SUCCESS) {
