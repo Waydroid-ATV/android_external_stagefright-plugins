@@ -74,6 +74,7 @@ private:
         const std::unique_ptr<C2Work> &work,
         const std::shared_ptr<C2BlockPool> &pool);
     c2_status_t downloadFrame(bool forceSw);
+    bool updateColorAspects(std::vector<std::unique_ptr<C2Param>>& configUpdate);
     c2_status_t reconfigureOutputDelay(std::vector<std::unique_ptr<C2Param>>& configUpdate);
     bool shouldUseP010Output(const AVHWFramesContext* hwfc = nullptr) const;
     uint32_t getActivePixelFormat(bool flexible, const AVHWFramesContext* hwfc = nullptr) const;
@@ -122,6 +123,7 @@ private:
     bool mExtradataReady;
     bool mEOSSignalled;
     bool mFilterInitialized;
+    C2ColorAspectsStruct mFrameColorAspects;
     int mDeinterlaceMode;
     int mDeinterlaceIndicator;
     std::deque<PendingWork> mPendingWorkQueue;

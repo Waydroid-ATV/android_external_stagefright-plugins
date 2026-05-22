@@ -36,6 +36,8 @@ public:
     uint64_t getConsumerUsage() const { return mConsumerUsage->value; }
     const std::shared_ptr<C2StreamPixelFormatInfo::output>&
         getPixelFormatInfo() const { return mPixelFormat; }
+    const std::shared_ptr<C2StreamColorAspectsInfo::output>&
+        getColorAspectsInfo() const { return mColorAspects; }
     uint32_t getPixelFormat() const { return mPixelFormat->value; }
     uint32_t getOutputDelay() const { return mActualOutputDelay->value; }
     uint32_t getBitDepth() const { return mUtils->getBitDepth(); }
@@ -49,6 +51,15 @@ private:
         bool mayBlock,
         C2P<C2StreamProfileLevelInfo::input> &me,
         const C2P<C2StreamPictureSizeInfo::output> &size);
+    static C2R DefaultColorAspectsSetter(
+        bool mayBlock, C2P<C2StreamColorAspectsTuning::output> &me);
+    static C2R CodedColorAspectsSetter(
+        bool mayBlock, C2P<C2StreamColorAspectsInfo::input> &me);
+    static C2R ColorAspectsSetter(
+        bool mayBlock,
+        C2P<C2StreamColorAspectsInfo::output> &me,
+        const C2P<C2StreamColorAspectsTuning::output> &def,
+        const C2P<C2StreamColorAspectsInfo::input> &coded);
     static C2R CodecSetter(
         bool mayBlock, C2P<C2StreamRawCodecDataInfo::input>& me);
 
@@ -56,6 +67,9 @@ private:
     std::shared_ptr<C2StreamPictureSizeInfo::output> mSize;
     std::shared_ptr<C2StreamProfileLevelInfo::input> mProfileLevel;
     std::shared_ptr<C2StreamColorInfo::output> mColorInfo;
+    std::shared_ptr<C2StreamColorAspectsTuning::output> mDefaultColorAspects;
+    std::shared_ptr<C2StreamColorAspectsInfo::input> mCodedColorAspects;
+    std::shared_ptr<C2StreamColorAspectsInfo::output> mColorAspects;
     std::shared_ptr<C2StreamPixelFormatInfo::output> mPixelFormat;
     std::shared_ptr<C2StreamRawCodecDataInfo::input> mRawCodecData;
     std::shared_ptr<C2StreamUsageTuning::output> mConsumerUsage;

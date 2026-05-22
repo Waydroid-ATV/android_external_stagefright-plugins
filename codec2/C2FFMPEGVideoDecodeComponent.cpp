@@ -62,6 +62,98 @@ typedef struct {
 
 namespace android {
 
+static C2Color::range_t convertFFMPEGColorRange(enum AVColorRange range) {
+    switch (range) {
+        case AVCOL_RANGE_JPEG:
+            return C2Color::RANGE_FULL;
+        case AVCOL_RANGE_MPEG:
+        case AVCOL_RANGE_UNSPECIFIED:
+        default:
+            return C2Color::RANGE_LIMITED;
+    }
+}
+
+static C2Color::primaries_t convertFFMPEGColorPrimaries(enum AVColorPrimaries primaries) {
+    switch (primaries) {
+        case AVCOL_PRI_BT709:
+            return C2Color::PRIMARIES_BT709;
+        case AVCOL_PRI_BT470M:
+            return C2Color::PRIMARIES_BT470_M;
+        case AVCOL_PRI_BT470BG:
+            return C2Color::PRIMARIES_BT601_625;
+        case AVCOL_PRI_SMPTE170M:
+        case AVCOL_PRI_SMPTE240M:
+            return C2Color::PRIMARIES_BT601_525;
+        case AVCOL_PRI_FILM:
+            return C2Color::PRIMARIES_GENERIC_FILM;
+        case AVCOL_PRI_BT2020:
+            return C2Color::PRIMARIES_BT2020;
+        case AVCOL_PRI_SMPTE431:
+            return C2Color::PRIMARIES_RP431;
+        case AVCOL_PRI_SMPTE432:
+            return C2Color::PRIMARIES_EG432;
+        case AVCOL_PRI_UNSPECIFIED:
+        default:
+            return C2Color::PRIMARIES_UNSPECIFIED;
+    }
+}
+
+static C2Color::transfer_t convertFFMPEGColorTransfer(enum AVColorTransferCharacteristic transfer) {
+    switch (transfer) {
+        case AVCOL_TRC_BT709:
+        case AVCOL_TRC_SMPTE170M:
+        case AVCOL_TRC_BT2020_10:
+        case AVCOL_TRC_BT2020_12:
+            return C2Color::TRANSFER_170M;
+        case AVCOL_TRC_GAMMA22:
+            return C2Color::TRANSFER_GAMMA22;
+        case AVCOL_TRC_GAMMA28:
+            return C2Color::TRANSFER_GAMMA28;
+        case AVCOL_TRC_LINEAR:
+            return C2Color::TRANSFER_LINEAR;
+        case AVCOL_TRC_SMPTE240M:
+            return C2Color::TRANSFER_240M;
+        case AVCOL_TRC_IEC61966_2_4:
+            return C2Color::TRANSFER_XVYCC;
+        case AVCOL_TRC_BT1361_ECG:
+            return C2Color::TRANSFER_BT1361;
+        case AVCOL_TRC_IEC61966_2_1:
+            return C2Color::TRANSFER_SRGB;
+        case AVCOL_TRC_SMPTE2084:
+            return C2Color::TRANSFER_ST2084;
+        case AVCOL_TRC_SMPTE428:
+            return C2Color::TRANSFER_ST428;
+        case AVCOL_TRC_ARIB_STD_B67:
+            return C2Color::TRANSFER_HLG;
+        case AVCOL_TRC_UNSPECIFIED:
+        default:
+            return C2Color::TRANSFER_UNSPECIFIED;
+    }
+}
+
+static C2Color::matrix_t convertFFMPEGColorMatrix(enum AVColorSpace colorspace) {
+    switch (colorspace) {
+        case AVCOL_SPC_BT709:
+            return C2Color::MATRIX_BT709;
+        case AVCOL_SPC_FCC:
+            return C2Color::MATRIX_FCC47_73_682;
+        case AVCOL_SPC_BT470BG:
+        case AVCOL_SPC_SMPTE170M:
+            return C2Color::MATRIX_BT601;
+        case AVCOL_SPC_SMPTE240M:
+            return C2Color::MATRIX_240M;
+        case AVCOL_SPC_BT2020_NCL:
+            return C2Color::MATRIX_BT2020;
+        case AVCOL_SPC_BT2020_CL:
+            return C2Color::MATRIX_BT2020_CONSTANT;
+        case AVCOL_SPC_RGB:
+            return C2Color::MATRIX_OTHER;
+        case AVCOL_SPC_UNSPECIFIED:
+        default:
+            return C2Color::MATRIX_UNSPECIFIED;
+    }
+}
+
 static int getDeinterlaceMode() {
     std::string prop = base::GetProperty("debug.ffmpeg-codec2.deinterlace", "auto");
 
@@ -92,6 +184,10 @@ C2FFMPEGVideoDecodeComponent::C2FFMPEGVideoDecodeComponent(
       mCodecAlreadyOpened(false),
       mExtradataReady(false),
       mEOSSignalled(false),
+      mFrameColorAspects(C2Color::RANGE_UNSPECIFIED,
+                         C2Color::PRIMARIES_UNSPECIFIED,
+                         C2Color::TRANSFER_UNSPECIFIED,
+                         C2Color::MATRIX_UNSPECIFIED),
       mUtils(std::make_unique<C2FFMPEGVideoUtils>()) {
     ALOGD("C2FFMPEGVideoDecodeComponent: mediaType = %s", componentInfo->mediaType);
 #if CONFIG_VAAPI
@@ -872,6 +968,45 @@ c2_status_t C2FFMPEGVideoDecodeComponent::downloadFrame(bool forceSw) {
     return C2_OK;
 }
 
+bool C2FFMPEGVideoDecodeComponent::updateColorAspects(
+        std::vector<std::unique_ptr<C2Param>>& configUpdate) {
+    if (!mFrame) {
+        return false;
+    }
+
+    C2StreamColorAspectsInfo::input codedAspects(0u);
+    codedAspects.range = convertFFMPEGColorRange(mFrame->color_range);
+    codedAspects.primaries = convertFFMPEGColorPrimaries(mFrame->color_primaries);
+    codedAspects.transfer = convertFFMPEGColorTransfer(mFrame->color_trc);
+    codedAspects.matrix = convertFFMPEGColorMatrix(mFrame->colorspace);
+
+    const bool changed = codedAspects.range != mFrameColorAspects.range
+            || codedAspects.primaries != mFrameColorAspects.primaries
+            || codedAspects.transfer != mFrameColorAspects.transfer
+            || codedAspects.matrix != mFrameColorAspects.matrix;
+    if (!changed) {
+        return false;
+    }
+
+    std::vector<std::unique_ptr<C2SettingResult>> failures;
+    c2_status_t err = mIntf->config({ &codedAspects }, C2_MAY_BLOCK, &failures);
+    if (err != C2_OK) {
+        ALOGW("updateColorAspects: config update failed err = %d", err);
+        return false;
+    }
+
+    mFrameColorAspects = codedAspects;
+    configUpdate.push_back(C2Param::Copy(codedAspects));
+    configUpdate.push_back(C2Param::Copy(*mIntf->getColorAspectsInfo()));
+
+    ALOGD("updateColorAspects: range=%u primaries=%u transfer=%u matrix=%u "
+          "from ffmpeg range=%d primaries=%d trc=%d colorspace=%d",
+          codedAspects.range, codedAspects.primaries, codedAspects.transfer, codedAspects.matrix,
+          mFrame->color_range, mFrame->color_primaries, mFrame->color_trc, mFrame->colorspace);
+
+    return true;
+}
+
 bool C2FFMPEGVideoDecodeComponent::shouldUseP010Output(const AVHWFramesContext* hwfc) const {
 #if CONFIG_VAAPI
     if (hwfc && hwfc->sw_format == AV_PIX_FMT_P010) {
@@ -1173,6 +1308,8 @@ c2_status_t C2FFMPEGVideoDecodeComponent::outputFrame(
         }
     }
 
+    updateColorAspects(configUpdate);
+
 #if CONFIG_VAAPI
     AVHWFramesContext* hwfc = mFrame->hw_frames_ctx ? (AVHWFramesContext*)mFrame->hw_frames_ctx->data : nullptr;
     if (mFrame->format == AV_PIX_FMT_VAAPI && mIntf->getPixelFormat() != getActivePixelFormat(true, hwfc)) {
@@ -1205,6 +1342,7 @@ c2_status_t C2FFMPEGVideoDecodeComponent::outputFrame(
     std::shared_ptr<C2Buffer> buffer = getOutputBuffer(pool);
     if (buffer) {
         buffer->setInfo(mIntf->getPixelFormatInfo());
+        buffer->setInfo(mIntf->getColorAspectsInfo());
     }
 
     if (work && c2_cntr64_t(mFrame->best_effort_timestamp) == work->input.ordinal.frameIndex) {

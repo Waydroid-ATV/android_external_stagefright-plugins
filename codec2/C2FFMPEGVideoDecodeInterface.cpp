@@ -245,6 +245,60 @@ C2FFMPEGVideoDecodeInterface::C2FFMPEGVideoDecodeInterface(
             .build());
 
     addParameter(
+            DefineParam(mDefaultColorAspects, C2_PARAMKEY_DEFAULT_COLOR_ASPECTS)
+            .withDefault(new C2StreamColorAspectsTuning::output(
+                    0u, C2Color::RANGE_UNSPECIFIED, C2Color::PRIMARIES_UNSPECIFIED,
+                    C2Color::TRANSFER_UNSPECIFIED, C2Color::MATRIX_UNSPECIFIED))
+            .withFields({
+                C2F(mDefaultColorAspects, range).inRange(
+                        C2Color::RANGE_UNSPECIFIED, C2Color::RANGE_OTHER),
+                C2F(mDefaultColorAspects, primaries).inRange(
+                        C2Color::PRIMARIES_UNSPECIFIED, C2Color::PRIMARIES_OTHER),
+                C2F(mDefaultColorAspects, transfer).inRange(
+                        C2Color::TRANSFER_UNSPECIFIED, C2Color::TRANSFER_OTHER),
+                C2F(mDefaultColorAspects, matrix).inRange(
+                        C2Color::MATRIX_UNSPECIFIED, C2Color::MATRIX_OTHER),
+            })
+            .withSetter(DefaultColorAspectsSetter)
+            .build());
+
+    addParameter(
+            DefineParam(mCodedColorAspects, C2_PARAMKEY_VUI_COLOR_ASPECTS)
+            .withDefault(new C2StreamColorAspectsInfo::input(
+                    0u, C2Color::RANGE_LIMITED, C2Color::PRIMARIES_UNSPECIFIED,
+                    C2Color::TRANSFER_UNSPECIFIED, C2Color::MATRIX_UNSPECIFIED))
+            .withFields({
+                C2F(mCodedColorAspects, range).inRange(
+                        C2Color::RANGE_UNSPECIFIED, C2Color::RANGE_OTHER),
+                C2F(mCodedColorAspects, primaries).inRange(
+                        C2Color::PRIMARIES_UNSPECIFIED, C2Color::PRIMARIES_OTHER),
+                C2F(mCodedColorAspects, transfer).inRange(
+                        C2Color::TRANSFER_UNSPECIFIED, C2Color::TRANSFER_OTHER),
+                C2F(mCodedColorAspects, matrix).inRange(
+                        C2Color::MATRIX_UNSPECIFIED, C2Color::MATRIX_OTHER),
+            })
+            .withSetter(CodedColorAspectsSetter)
+            .build());
+
+    addParameter(
+            DefineParam(mColorAspects, C2_PARAMKEY_COLOR_ASPECTS)
+            .withDefault(new C2StreamColorAspectsInfo::output(
+                    0u, C2Color::RANGE_UNSPECIFIED, C2Color::PRIMARIES_UNSPECIFIED,
+                    C2Color::TRANSFER_UNSPECIFIED, C2Color::MATRIX_UNSPECIFIED))
+            .withFields({
+                C2F(mColorAspects, range).inRange(
+                        C2Color::RANGE_UNSPECIFIED, C2Color::RANGE_OTHER),
+                C2F(mColorAspects, primaries).inRange(
+                        C2Color::PRIMARIES_UNSPECIFIED, C2Color::PRIMARIES_OTHER),
+                C2F(mColorAspects, transfer).inRange(
+                        C2Color::TRANSFER_UNSPECIFIED, C2Color::TRANSFER_OTHER),
+                C2F(mColorAspects, matrix).inRange(
+                        C2Color::MATRIX_UNSPECIFIED, C2Color::MATRIX_OTHER),
+            })
+            .withSetter(ColorAspectsSetter, mDefaultColorAspects, mCodedColorAspects)
+            .build());
+
+    addParameter(
             DefineParam(mPixelFormat, C2_PARAMKEY_PIXEL_FORMAT)
             .withDefault(new C2StreamPixelFormatInfo::output(
                                  0u, mUtils->getPixelFormat(false)))
@@ -290,6 +344,56 @@ C2R C2FFMPEGVideoDecodeInterface::ProfileLevelSetter(
         bool /* mayBlock */,
         C2P<C2StreamProfileLevelInfo::input>& /* me */,
         const C2P<C2StreamPictureSizeInfo::output>& /* size */) {
+    return C2R::Ok();
+}
+
+C2R C2FFMPEGVideoDecodeInterface::DefaultColorAspectsSetter(
+        bool mayBlock __unused, C2P<C2StreamColorAspectsTuning::output>& me) {
+    if (me.v.range > C2Color::RANGE_OTHER) {
+        me.set().range = C2Color::RANGE_OTHER;
+    }
+    if (me.v.primaries > C2Color::PRIMARIES_OTHER) {
+        me.set().primaries = C2Color::PRIMARIES_OTHER;
+    }
+    if (me.v.transfer > C2Color::TRANSFER_OTHER) {
+        me.set().transfer = C2Color::TRANSFER_OTHER;
+    }
+    if (me.v.matrix > C2Color::MATRIX_OTHER) {
+        me.set().matrix = C2Color::MATRIX_OTHER;
+    }
+    return C2R::Ok();
+}
+
+C2R C2FFMPEGVideoDecodeInterface::CodedColorAspectsSetter(
+        bool mayBlock __unused, C2P<C2StreamColorAspectsInfo::input>& me) {
+    if (me.v.range > C2Color::RANGE_OTHER) {
+        me.set().range = C2Color::RANGE_OTHER;
+    }
+    if (me.v.primaries > C2Color::PRIMARIES_OTHER) {
+        me.set().primaries = C2Color::PRIMARIES_OTHER;
+    }
+    if (me.v.transfer > C2Color::TRANSFER_OTHER) {
+        me.set().transfer = C2Color::TRANSFER_OTHER;
+    }
+    if (me.v.matrix > C2Color::MATRIX_OTHER) {
+        me.set().matrix = C2Color::MATRIX_OTHER;
+    }
+    return C2R::Ok();
+}
+
+C2R C2FFMPEGVideoDecodeInterface::ColorAspectsSetter(
+        bool mayBlock __unused,
+        C2P<C2StreamColorAspectsInfo::output>& me,
+        const C2P<C2StreamColorAspectsTuning::output>& def,
+        const C2P<C2StreamColorAspectsInfo::input>& coded) {
+    me.set().range = coded.v.range == C2Color::RANGE_UNSPECIFIED
+            ? def.v.range : coded.v.range;
+    me.set().primaries = coded.v.primaries == C2Color::PRIMARIES_UNSPECIFIED
+            ? def.v.primaries : coded.v.primaries;
+    me.set().transfer = coded.v.transfer == C2Color::TRANSFER_UNSPECIFIED
+            ? def.v.transfer : coded.v.transfer;
+    me.set().matrix = coded.v.matrix == C2Color::MATRIX_UNSPECIFIED
+            ? def.v.matrix : coded.v.matrix;
     return C2R::Ok();
 }
 
