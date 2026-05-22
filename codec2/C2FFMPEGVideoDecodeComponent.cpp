@@ -350,11 +350,12 @@ c2_status_t C2FFMPEGVideoDecodeComponent::sendInputBuffer(
     av_packet_unref(mPacket);
 
     if (err < 0) {
+        int packetSize = inBuffer ? inBuffer->capacity() : 0;
         ALOGE("sendInputBuffer: failed to send data (%d) to decoder: %s (%08x)",
-              inBuffer->capacity(), av_err2str(err), err);
+              packetSize, av_err2str(err), err);
         if (err == AVERROR(EAGAIN)) {
             // Frames must be read first, notify main decoding loop.
-            ALOGD("sendInputBuffer: returning C2_BAD_STATE");
+            ALOGD("sendInputBuffer: decoder needs output drain before accepting more input");
             return C2_BAD_STATE;
         } else if (err == AVERROR(ENOSYS) && mCtx->codec_id == AV_CODEC_ID_AV1 && mCtx->hw_device_ctx) {
             // AV1 HW decoding not supported, re-initialize decoder without VA-API
@@ -1327,7 +1328,13 @@ void C2FFMPEGVideoDecodeComponent::process(
                     inputConsumed = true;
                     outputAvailable = true;
                     work->input.buffers.clear();
-                } else if (err != C2_BAD_STATE) {
+                } else if (err == C2_BAD_STATE) {
+                    // avcodec_send_packet() returned EAGAIN. The decoder still owns the
+                    // input-side backpressure, so receive pending frames before retrying
+                    // this same input buffer. Without this, one EAGAIN after outputAvailable
+                    // became false spins on avcodec_send_packet() and playback stalls.
+                    outputAvailable = true;
+                } else {
                     work->workletsProcessed = 1u;
                     work->result = err;
                     return;
