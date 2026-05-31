@@ -356,7 +356,7 @@ c2_status_t C2FFMPEGVideoDecodeComponent::sendInputBuffer(
             // Frames must be read first, notify main decoding loop.
             ALOGD("sendInputBuffer: returning C2_BAD_STATE");
             return C2_BAD_STATE;
-        } else if (err == AVERROR(ENOSYS) && mCtx->codec_id == AV_CODEC_ID_AV1 && mCtx->hw_device_ctx) {
+        } else if (err == AVERROR(ENOSYS) && mCtx->codec_id == AV_CODEC_ID_AV1) {
             // AV1 HW decoding not supported, re-initialize decoder without VA-API
             ALOGW("sendInputBuffer: AV1 hardware decoding not supported, re-initializing now");
             C2FFMPEGVideoDecodeComponent::mAV1CanUseHwaccel = false;
