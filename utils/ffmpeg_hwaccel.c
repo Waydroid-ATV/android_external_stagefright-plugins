@@ -6,6 +6,7 @@
 #include "config.h"
 #include "ffmpeg_hwaccel.h"
 #include "libavutil/opt.h"
+#include "libavutil/hwcontext.h"
 
 int ffmpeg_hwaccel_init(AVCodecContext *avctx) {
     if (!property_get_bool("media.sf.hwaccel", 0))
@@ -75,6 +76,12 @@ int ffmpeg_hwaccel_get_frame(AVCodecContext *avctx __unused, AVFrame *frame) {
         return 0;
     }
 
+    enum AVPixelFormat sw_format = AV_PIX_FMT_YUV420P;
+    AVHWFramesContext *hwfc = (AVHWFramesContext *)frame->hw_frames_ctx->data;
+    if (hwfc && hwfc->sw_format == AV_PIX_FMT_P010) {
+        sw_format = AV_PIX_FMT_P010;
+    }
+
     AVFrame* output;
     int err;
 
@@ -97,9 +104,9 @@ int ffmpeg_hwaccel_get_frame(AVCodecContext *avctx __unused, AVFrame *frame) {
     //    would be successful (and if it fails, then method 3 will also
     //    likely fail).
 
-    // YUV420P mapping (slower)
+    // Software frame mapping (slower)
 
-    output->format = AV_PIX_FMT_YUV420P;
+    output->format = sw_format;
 
     err = av_hwframe_map(output, frame, AV_HWFRAME_MAP_READ);
     if (err == 0) {
@@ -109,7 +116,7 @@ int ffmpeg_hwaccel_get_frame(AVCodecContext *avctx __unused, AVFrame *frame) {
 
     // HW frame download (slowest)
 
-    output->format = AV_PIX_FMT_YUV420P;
+    output->format = sw_format;
 
     err = av_hwframe_transfer_data(output, frame, 0);
     if (err < 0) {

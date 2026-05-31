@@ -95,8 +95,13 @@
         </MediaCodec>
         <MediaCodec name="c2.ffmpeg.av1.decoder"   type="video/av01">
             <Alias name="OMX.ffmpeg.av1.decoder" />
-            <Limit name="size" min="2x2" max="2048x2048" />
+            <Limit name="size" min="2x2" max="4096x4096" />
             <Limit name="alignment" value="2x2" />
+            <Limit name="block-size" value="16x16" />
+            <Limit name="blocks-per-second" range="24-2073600" />
+            <Limit name="bitrate" range="1-120000000" />
+            <Limit name="frame-rate" range="1-480" />
+            <Limit name="performance-point-3840x2160" value="30" />
             <Feature name="adaptive-playback" />
             <Feature name="low-latency" />
         </MediaCodec>

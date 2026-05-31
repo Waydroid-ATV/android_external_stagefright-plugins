@@ -32,6 +32,7 @@ namespace android {
 
 enum class PixelFormatType {
     YUV_420,
+    YUV_420_P010,
     YUV_420_PLANER,
     RGB_565,
     RGBX_8888,
@@ -48,6 +49,7 @@ public:
     bool shouldEnableCodec(const std::string codec, bool hwonly) const;
     bool isPixelFormatYUV420() const;
     bool isVPPMode() const;
+    uint32_t getBitDepth() const;
     uint32_t getPixelFormat(bool flexible) const;
 #if CONFIG_VAAPI
     uint32_t getVAFormat() const;
@@ -62,6 +64,7 @@ public:
 private:
     const std::map<std::string, PixelFormatType> mPixelFormatMap = {
         { "YUV_420", PixelFormatType::YUV_420 },
+        { "YUV_420_P010", PixelFormatType::YUV_420_P010 },
         { "YUV_420_PLANER", PixelFormatType::YUV_420_PLANER },
         { "RGB_565", PixelFormatType::RGB_565 },
         { "RGBX_8888", PixelFormatType::RGBX_8888 },
